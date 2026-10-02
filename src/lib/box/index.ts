@@ -62,3 +62,12 @@ export {
 export type { Cut, FirstCut, NestOptions, NestStrategy } from "./nesting"
 export { toolsList, type ToolItem } from "./tools-list"
 export { lidWord, dividerWord, capitalize, partTypeLabel } from "./words"
+export {
+  openSpecs,
+  openProgress,
+  rotateAbout,
+  OPEN_ANGLE,
+  DROP_DOWN_ANGLE,
+  OPEN_STAGGER,
+  type OpenSpec,
+} from "./open"

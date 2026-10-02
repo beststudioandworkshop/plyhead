@@ -25,6 +25,7 @@ export function PreviewCard({ result, lidPosition }: { result: BoxResult; lidPos
   const { resolvedTheme } = useTheme()
   const [exploded, setExploded] = React.useState(false)
   const [surface, setSurface] = React.useState<Surface>("hatch")
+  const [opened, setOpened] = React.useState(false)
   const [resetKey, setResetKey] = React.useState(0)
 
   const present = new Set(result.parts.map((p) => p.type))
@@ -45,6 +46,7 @@ export function PreviewCard({ result, lidPosition }: { result: BoxResult; lidPos
               exploded={exploded}
               resetKey={resetKey}
               surface={surface}
+              opened={opened}
               dark={resolvedTheme === "dark"}
             />
           ) : (
@@ -55,10 +57,16 @@ export function PreviewCard({ result, lidPosition }: { result: BoxResult; lidPos
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Label className="gap-2">
-            <Switch checked={exploded} onCheckedChange={setExploded} />
-            Exploded view
-          </Label>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <Label className="gap-2">
+              <Switch checked={exploded} onCheckedChange={setExploded} />
+              Exploded view
+            </Label>
+            <Label className="gap-2">
+              <Switch checked={opened} onCheckedChange={setOpened} />
+              {lidPosition === "front" ? "Open the door" : "Open the lid"}
+            </Label>
+          </div>
           <Choice<Surface>
             label="Surface"
             size="sm"

@@ -14,10 +14,13 @@ import {
   centerOf,
   defaultExplodeDistance,
   explodeOffset,
+  openProgress,
+  openSpecs,
   partProgress,
   viewRadius,
   type BoxResult,
   type LidPosition,
+  type OpenSpec,
   type Part,
   type Vec3,
 } from "@/lib/box"
@@ -25,6 +28,8 @@ import {
 const FOV_DEG = 35
 /** Length of the explode / collapse animation. */
 const EXPLODE_SECONDS = 1.1
+/** Length of the open / close animation. */
+const OPEN_SECONDS = 1.2
 /** How quickly the camera glides to a new framing (higher = snappier). */
 const CAMERA_EASE = 5
 /** Default viewing direction (towards the camera from the box centre). */
@@ -38,6 +43,7 @@ const EDGE_DARK = "hsl(0, 0%, 90%)"
 export type Surface = "solid" | "hatch" | "grain"
 
 interface SceneProps {
+  opened: boolean
   surface: Surface
   result: BoxResult
   lidPosition: LidPosition
@@ -145,10 +151,15 @@ function PartMesh({
   hingeLift,
   surface,
   radius,
+  open,
+  openT,
 }: {
   part: Part
   offset: Vec3
   progress: React.RefObject<number>
+  /** How to swing this part open about its hinge, if it opens. */
+  open?: OpenSpec
+  openT: React.RefObject<number>
   edgeColor: string
   hingeLift: Vec3
   surface: Surface
@@ -156,7 +167,11 @@ function PartMesh({
 }) {
   const material = useSurface(part, surface, radius)
   const group = React.useRef<Group>(null)
+  const pivotGroup = React.useRef<Group>(null)
   const invalidate = useThree((s) => s.invalidate)
+  // Everything inside the pivot group is positioned relative to the hinge line (or the origin).
+  const pivot: Vec3 = open ? open.pivot : [0, 0, 0]
+  const axis = React.useMemo(() => (open ? new Vector3(...open.axis) : null), [open])
 
   // Position follows the shared timeline every frame, staged per part type
   // (cheap, and it also places the part correctly on its first frame).
@@ -165,6 +180,11 @@ function PartMesh({
     if (!g) return
     const p = partProgress(progress.current, part.type)
     g.position.set(offset[0] * p, offset[1] * p, offset[2] * p)
+    // Swing about the hinge line while the rest of the box stays put.
+    const pg = pivotGroup.current
+    if (pg && open && axis) {
+      pg.quaternion.setFromAxisAngle(axis, open.angle * openProgress(openT.current, open.rank, open.leaves))
+    }
   })
   React.useEffect(() => invalidate(), [offset, invalidate])
 
@@ -174,7 +194,8 @@ function PartMesh({
   const hinge = part.hinge
   return (
     <group ref={group}>
-      <mesh position={part.center} rotation={part.shape === "polygon" ? part.rotation : undefined}>
+      <group ref={pivotGroup} position={pivot}>
+      <mesh position={[part.center[0] - pivot[0], part.center[1] - pivot[1], part.center[2] - pivot[2]]} rotation={part.shape === "polygon" ? part.rotation : undefined}>
         {part.shape === "cylinder" ? (
           <cylinderGeometry args={[part.width / 2, part.width / 2, part.length, 40]} />
         ) : plate ? (
@@ -195,8 +216,16 @@ function PartMesh({
       {hinge ? (
         <Line
           points={[
-            [hinge.from[0] + hingeLift[0], hinge.from[1] + hingeLift[1], hinge.from[2] + hingeLift[2]],
-            [hinge.to[0] + hingeLift[0], hinge.to[1] + hingeLift[1], hinge.to[2] + hingeLift[2]],
+            [
+              hinge.from[0] - pivot[0] + hingeLift[0],
+              hinge.from[1] - pivot[1] + hingeLift[1],
+              hinge.from[2] - pivot[2] + hingeLift[2],
+            ],
+            [
+              hinge.to[0] - pivot[0] + hingeLift[0],
+              hinge.to[1] - pivot[1] + hingeLift[1],
+              hinge.to[2] - pivot[2] + hingeLift[2],
+            ],
           ]}
           color={HINGE_COLOR}
           lineWidth={4}
@@ -207,12 +236,14 @@ function PartMesh({
           renderOrder={10}
         />
       ) : null}
+      </group>
     </group>
   )
 }
 
-function Scene({ result, lidPosition, exploded, resetKey, dark, surface }: SceneProps) {
+function Scene({ result, lidPosition, exploded, resetKey, dark, surface, opened }: SceneProps) {
   const progress = React.useRef(0)
+  const openT = React.useRef(0)
   const controls = React.useRef<React.ComponentRef<typeof OrbitControls>>(null)
   const getState = useThree((s) => s.get)
   const size = useThree((s) => s.size)
@@ -240,7 +271,23 @@ function Scene({ result, lidPosition, exploded, resetKey, dark, surface }: Scene
     invalidate()
   })
 
-  const radius = viewRadius(result.bounds, exploded ? distance : 0)
+  // The same kind of timeline for opening the lid or door.
+  useFrame((_, delta) => {
+    const target = opened ? 1 : 0
+    const t = openT.current
+    if (t === target) return
+    const step = delta / OPEN_SECONDS
+    openT.current = target > t ? Math.min(target, t + step) : Math.max(target, t - step)
+    invalidate()
+  })
+
+  const specs = React.useMemo(() => openSpecs(result.parts, lidPosition), [result.parts, lidPosition])
+  // An open lid or door swings out beyond the box, so leave room for it.
+  const openExtra = opened
+    ? Math.max(0, ...result.parts.filter((p) => specs.has(p.id)).map((p) => Math.max(p.length, p.width))) * 0.55
+    : 0
+
+  const radius = viewRadius(result.bounds, (exploded ? distance : 0) + openExtra)
   const lastResetKey = React.useRef(resetKey)
   const hasFramed = React.useRef(false)
   /** Where the camera is gliding to, or null when it's at rest / the user is steering. */
@@ -345,6 +392,8 @@ function Scene({ result, lidPosition, exploded, resetKey, dark, surface }: Scene
           hingeLift={hingeLift}
           surface={surface}
           radius={radius}
+          open={specs.get(part.id)}
+          openT={openT}
         />
       ))}
       <OrbitControls ref={controls} makeDefault enableDamping={false} maxPolarAngle={Math.PI * 0.98} />
