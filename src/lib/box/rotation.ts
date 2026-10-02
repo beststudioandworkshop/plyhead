@@ -76,3 +76,17 @@ export function rotateVec(euler: Vec3, v: Vec3): Vec3 {
   const z3 = sx * y1 + cx * z2
   return [x2, y3, z3]
 }
+
+/** The inverse of rotateVec: world-space direction → part-local direction. */
+export function inverseRotateVec(euler: Vec3, v: Vec3): Vec3 {
+  const [rx, ry, rz] = euler
+  const [cx, sx, cy, sy, cz, sz] = [Math.cos(-rx), Math.sin(-rx), Math.cos(-ry), Math.sin(-ry), Math.cos(-rz), Math.sin(-rz)]
+  // R = Rx·Ry·Rz, so R⁻¹ applies Rx⁻¹ first, then Ry⁻¹, then Rz⁻¹.
+  const y1 = cx * v[1] - sx * v[2]
+  const z1 = sx * v[1] + cx * v[2]
+  const x2 = cy * v[0] + sy * z1
+  const z2 = -sy * v[0] + cy * z1
+  const x3 = cz * x2 - sz * y1
+  const y3 = sz * x2 + cz * y1
+  return [x3, y3, z2]
+}

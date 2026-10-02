@@ -12,18 +12,48 @@ const base: BoxInputs = {
   thickness: 18,
   lidPosition: "top",
   lidType: "full",
-  openLeaf: "right",
-  legs: { face: null, height: 100, section: 38, inset: 12 },
+  hingeSide: "long",
+  openLeaf: "second",
+  legs: { style: "none", height: 100, diameter: 38, inset: 12, width: 76, footWidth: 38 },
   joinery: "butt",
 }
 
 describe("groupParts", () => {
-  it("groups the two sides and the four legs", () => {
-    const r = buildBox({ ...base, legs: { ...base.legs, face: "bottom" } })
+  it("groups the two sides and the four dowels", () => {
+    const r = buildBox({ ...base, legs: { ...base.legs, style: "dowel" } })
     const rows = groupParts(r.parts)
     expect(rows.find((x) => x.name === "Side")?.quantity).toBe(2)
-    expect(rows.find((x) => x.name === "Leg")?.quantity).toBe(4)
+    const dowels = rows.filter((x) => x.name === "Dowel leg")
+    expect(dowels).toHaveLength(1)
+    expect(dowels[0].quantity).toBe(4)
+    expect(dowels[0].type).toBe("leg")
+    expect(dowels[0].partIds).toEqual(["leg-1", "leg-2", "leg-3", "leg-4"])
+    expect(dowels[0].length).toBeCloseTo(100, 6)
     expect(rows.reduce((n, x) => n + x.quantity, 0)).toBe(r.parts.length)
+  })
+
+  it("tapered legs: plate A x4 and plate B x4 are separate rows", () => {
+    const r = buildBox({ ...base, legs: { ...base.legs, style: "tapered" } })
+    const rows = groupParts(r.parts)
+    const a = rows.filter((x) => x.name === "Leg plate A")
+    const b = rows.filter((x) => x.name === "Leg plate B")
+    expect(a).toHaveLength(1)
+    expect(b).toHaveLength(1)
+    expect(a[0].quantity).toBe(4)
+    expect(b[0].quantity).toBe(4)
+    expect(a[0].width).toBeCloseTo(76, 6)
+    expect(b[0].width).toBeCloseTo(76 - 18, 6)
+    expect(a[0].partIds).toHaveLength(4)
+    expect(rows.reduce((n, x) => n + x.quantity, 0)).toBe(r.parts.length)
+  })
+
+  it("groups by name as well as cut size", () => {
+    const [p] = buildBox(base).parts
+    const rows = groupParts([p, { ...p, id: "x", name: "Other" }, { ...p, id: "y" }])
+    expect(rows.map((x) => [x.name, x.quantity])).toEqual([
+      [p.name, 2],
+      ["Other", 1],
+    ])
   })
 
   it("keeps split leaves together but fixed/opening halves separate", () => {

@@ -1,45 +1,8 @@
-import { PART_PRECISION_MM } from "./constants"
 import { JOINERY } from "./joinery"
 import { buildLid } from "./lid"
-import { buildLegBoxes, validateLegs } from "./legs"
-import { boxCenter, boxSize, eulerFromAxes } from "./rotation"
-import type { Axis, Box, BoxInputs, BoxResult, Dims, Issue, Part, PartType, Vec3 } from "./types"
-
-const round = (n: number) => {
-  const f = 10 ** PART_PRECISION_MM
-  const r = Math.round(n * f) / f
-  return Object.is(r, -0) ? 0 : r
-}
-const roundVec = (v: Vec3): Vec3 => [round(v[0]), round(v[1]), round(v[2])]
-
-/** Turn a world-space box into a Part, given which axis is the thickness. */
-function partFromBox(
-  base: Pick<Part, "id" | "name" | "type"> & { hinge?: Part["hinge"] },
-  b: Box,
-  thicknessAxis: Axis,
-  lengthAxis?: Axis,
-): Part {
-  const size = boxSize(b)
-  const rest = ([0, 1, 2] as Axis[]).filter((a) => a !== thicknessAxis)
-  // Length runs along the longer remaining axis unless the caller says otherwise.
-  const [lAxis, wAxis] =
-    lengthAxis !== undefined
-      ? [lengthAxis, rest.find((a) => a !== lengthAxis)!]
-      : size[rest[1]] > size[rest[0]]
-        ? [rest[1], rest[0]]
-        : [rest[0], rest[1]]
-
-  return {
-    ...base,
-    length: round(size[lAxis]),
-    width: round(size[wAxis]),
-    thickness: round(size[thicknessAxis]),
-    center: roundVec(boxCenter(b)),
-    rotation: eulerFromAxes(lAxis, thicknessAxis, wAxis),
-    extents: roundVec(size),
-    grain: null,
-  }
-}
+import { buildLegParts, validateLegs } from "./legs"
+import { partFromBox, roundVec } from "./part"
+import type { Axis, Box, BoxInputs, BoxResult, Dims, Issue, Part, Vec3 } from "./types"
 
 /** Resolve exterior and interior dimensions from the inputs. */
 export function resolveDimensions(inputs: BoxInputs): { exterior: Dims; interior: Dims } {
@@ -83,7 +46,7 @@ function validate(inputs: BoxInputs, exterior: Dims, interior: Dims): Issue[] {
     })
     return issues
   }
-  return validateLegs(inputs.legs, inputs.lidPosition, exterior)
+  return validateLegs(inputs.legs, inputs.thickness, exterior)
 }
 
 const EMPTY_BOUNDS: Box = { min: [0, 0, 0], max: [0, 0, 0] }
@@ -110,7 +73,7 @@ export function buildBox(inputs: BoxInputs): BoxResult {
   }
 
   const lidThicknessAxis: Axis = inputs.lidPosition === "top" ? 1 : 2
-  for (const lid of buildLid(layout.lidSlab, inputs.lidPosition, inputs.lidType, inputs.openLeaf)) {
+  for (const lid of buildLid(layout.lidSlab, inputs.lidPosition, inputs.lidType, inputs.openLeaf, inputs.hingeSide)) {
     parts.push(
       partFromBox(
         { id: lid.id, name: lid.name, type: "lid", hinge: lid.hinge },
@@ -120,13 +83,7 @@ export function buildBox(inputs: BoxInputs): BoxResult {
     )
   }
 
-  buildLegBoxes(inputs.legs, exterior).forEach(({ box, lengthAxis }, i) => {
-    // Square post: either remaining axis can be "thickness".
-    const thicknessAxis = ([0, 1, 2] as Axis[]).find((a) => a !== lengthAxis)!
-    parts.push(
-      partFromBox({ id: `leg-${i + 1}`, name: "Leg", type: "leg" as PartType }, box, thicknessAxis, lengthAxis),
-    )
-  })
+  parts.push(...buildLegParts(inputs.legs, t, exterior))
 
   return { ok: true, issues: [], exterior, interior, parts, bounds: boundsOf(parts) }
 }

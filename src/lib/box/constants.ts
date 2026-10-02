@@ -1,4 +1,4 @@
-import type { Dims, Face, JoineryId, LidPosition } from "./types"
+import type { Dims, JoineryId } from "./types"
 
 /**
  * Construction assumptions for v1. Everything the geometry depends on that is a
@@ -42,15 +42,6 @@ export const THICKNESS_PRESETS: ThicknessPreset[] = [
   { id: "18mm", label: "18 mm", mm: 18 },
 ]
 
-/** Hinge edge of a FULL lid, by lid position. Split/half hinge on outer edges. */
-export const FULL_LID_HINGE: Record<LidPosition, "left" | "back"> = {
-  top: "back",
-  front: "left",
-}
-
-/** Faces legs may attach to. The lid face is excluded at validation time. */
-export const LEG_FACES: Face[] = ["bottom", "back", "left", "right", "front", "top"]
-
 export const DEFAULT_EXTERIOR: Dims = {
   w: 18 * MM_PER_INCH,
   d: 12 * MM_PER_INCH,
@@ -59,6 +50,10 @@ export const DEFAULT_EXTERIOR: Dims = {
 
 export const DEFAULT_LEGS = {
   height: 4 * MM_PER_INCH,
-  section: 1.5 * MM_PER_INCH,
+  /** Thick dowels. */
+  diameter: 1.5 * MM_PER_INCH,
   inset: 0.5 * MM_PER_INCH,
+  /** Tapered plywood corner legs: L outer size at the top and at the floor. */
+  width: 3 * MM_PER_INCH,
+  footWidth: 1.5 * MM_PER_INCH,
 }

@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { Edges, Line, OrbitControls } from "@react-three/drei"
-import type { Group } from "three"
+import { ExtrudeGeometry, Shape, Vector2, type BufferGeometry, type Group } from "three"
 
 import {
   HINGE_COLOR,
@@ -35,6 +35,16 @@ interface SceneProps {
   dark: boolean
 }
 
+/** A flat plate from a part's polygon outline, thickness centred on its mid-plane. */
+function plateGeometry(part: Part): BufferGeometry {
+  const shape = new Shape((part.outline ?? []).map(([x, y]) => new Vector2(x, y)))
+  const geometry = new ExtrudeGeometry(shape, { depth: part.thickness, bevelEnabled: false })
+  // Shape y becomes local z (across the width); the extrusion runs along local -y.
+  geometry.rotateX(Math.PI / 2)
+  geometry.translate(0, part.thickness / 2, 0)
+  return geometry
+}
+
 function PartMesh({
   part,
   offset,
@@ -61,11 +71,20 @@ function PartMesh({
   })
   React.useEffect(() => invalidate(), [offset, invalidate])
 
+  const plate = React.useMemo(() => (part.shape === "polygon" ? plateGeometry(part) : null), [part])
+  React.useEffect(() => () => plate?.dispose(), [plate])
+
   const hinge = part.hinge
   return (
     <group ref={group}>
-      <mesh position={part.center}>
-        <boxGeometry args={part.extents} />
+      <mesh position={part.center} rotation={part.shape === "polygon" ? part.rotation : undefined}>
+        {part.shape === "cylinder" ? (
+          <cylinderGeometry args={[part.width / 2, part.width / 2, part.length, 40]} />
+        ) : plate ? (
+          <primitive object={plate} attach="geometry" />
+        ) : (
+          <boxGeometry args={part.extents} />
+        )}
         <meshStandardMaterial color={PART_COLORS[part.type]} roughness={0.75} metalness={0} />
         <Edges color={edgeColor} threshold={15} />
       </mesh>

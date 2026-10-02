@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest"
 import { buildBox, resolveDimensions } from "./index"
 import { rotateVec } from "./rotation"
-import type { BoxInputs } from "./types"
+import type { BoxInputs, BoxResult, HingeSide, LeafSide, LegInputs, LidPosition, LidType, Part, Vec3 } from "./types"
 import { inToMm } from "./units"
 
 const inputs = (overrides: Partial<BoxInputs> = {}): BoxInputs => ({
@@ -11,12 +11,20 @@ const inputs = (overrides: Partial<BoxInputs> = {}): BoxInputs => ({
   thickness: 18,
   lidPosition: "top",
   lidType: "full",
-  openLeaf: "right",
-  legs: { face: null, height: 100, section: 38, inset: 12 },
+  hingeSide: "long",
+  openLeaf: "second",
+  legs: { style: "none", height: 100, diameter: 38, inset: 12, width: 76, footWidth: 38 },
   joinery: "butt",
   ...overrides,
 })
-import type { BoxResult, LidPosition, LidType, Part, Vec3 } from "./types"
+const withLegs = (style: LegInputs["style"]): LegInputs => ({
+  style,
+  height: 100,
+  diameter: 38,
+  inset: 12,
+  width: 76,
+  footWidth: 38,
+})
 
 const W = inToMm(18)
 const D = inToMm(12)
@@ -172,13 +180,14 @@ describe("part sets", () => {
 })
 
 describe("assembly validity", () => {
-  const combos: [LidPosition, LidType, "left" | "right"][] = []
+  const combos: [LidPosition, LidType, HingeSide, LeafSide][] = []
   for (const lp of ["top", "front"] as const)
     for (const lt of ["full", "split", "half"] as const)
-      for (const ol of ["left", "right"] as const) combos.push([lp, lt, ol])
+      for (const hs of ["long", "short"] as const)
+        for (const ol of ["first", "second"] as const) combos.push([lp, lt, hs, ol])
 
-  it.each(combos)("%s lid, %s, openLeaf %s: rotation, bounds, overlap, volume", (lidPosition, lidType, openLeaf) => {
-    const r = buildBox(inputs({ lidPosition, lidType, openLeaf }))
+  it.each(combos)("%s lid, %s, hinge %s, openLeaf %s: rotation, bounds, overlap, volume", (lidPosition, lidType, hingeSide, openLeaf) => {
+    const r = buildBox(inputs({ lidPosition, lidType, hingeSide, openLeaf }))
     expect(r.ok).toBe(true)
     expect(r.issues).toEqual([])
 
@@ -225,6 +234,43 @@ describe("assembly validity", () => {
       const total = r.parts.reduce((s, p) => s + vol(p), 0)
       expect(total).toBeCloseTo(W * D * H - r.interior.w * r.interior.d * r.interior.h, 0)
     }
+  })
+})
+
+describe("assembly with legs", () => {
+  const cases: [LidPosition, "dowel" | "tapered", HingeSide][] = []
+  for (const lp of ["top", "front"] as const)
+    for (const st of ["dowel", "tapered"] as const)
+      for (const hs of ["long", "short"] as const) cases.push([lp, st, hs])
+
+  it.each(cases)("%s lid, %s legs, hinge %s", (lidPosition, style, hingeSide) => {
+    const r = buildBox(inputs({ lidPosition, hingeSide, legs: withLegs(style) }))
+    expect(r.ok).toBe(true)
+    expect(r.parts.filter((p) => p.type === "leg")).toHaveLength(style === "dowel" ? 4 : 8)
+
+    for (const p of r.parts) {
+      expect(["box", "cylinder", "polygon"]).toContain(p.shape)
+      expect(p.shape).toBe(p.type !== "leg" ? "box" : style === "dowel" ? "cylinder" : "polygon")
+      const rv = rotateVec(p.rotation, [p.length, p.thickness, p.width])
+      for (let a = 0; a < 3; a++) expect(Math.abs(rv[a])).toBeCloseTo(p.extents[a], 2)
+    }
+
+    const parts = r.parts
+    for (let i = 0; i < parts.length; i++)
+      for (let j = i + 1; j < parts.length; j++)
+        expect(overlaps(parts[i], parts[j]), `${parts[i].id} vs ${parts[j].id}`).toBe(false)
+
+    expect(r.bounds.min[0]).toBeCloseTo(0, 6)
+    expect(r.bounds.min[1]).toBeCloseTo(-100, 6)
+    expect(r.bounds.min[2]).toBeCloseTo(0, 6)
+    expect(r.bounds.max[0]).toBeCloseTo(W, 2)
+    expect(r.bounds.max[1]).toBeCloseTo(H, 2)
+    expect(r.bounds.max[2]).toBeCloseTo(D, 2)
+  })
+
+  it("boards are shape box", () => {
+    const r = buildBox(inputs())
+    expect(r.parts.every((p) => p.shape === "box" && p.outline === undefined && p.footWidth === undefined)).toBe(true)
   })
 })
 
@@ -281,6 +327,12 @@ describe("validation", () => {
     )
   })
 
+  it("invalid legs fail the whole build with empty parts", () => {
+    bad(buildBox(inputs({ legs: { ...withLegs("dowel"), height: 0 } })), "legs-invalid-size")
+    bad(buildBox(inputs({ legs: { ...withLegs("tapered"), footWidth: 10 } })), "legs-foot-too-narrow")
+    bad(buildBox(inputs({ legs: { ...withLegs("tapered"), width: 200 } })), "legs-too-large-for-face")
+  })
+
   it("ok results have no issues and a non-empty parts list", () => {
     const r = buildBox(inputs())
     expect(r.ok).toBe(true)
@@ -291,13 +343,13 @@ describe("validation", () => {
 
 describe("determinism", () => {
   it("building twice gives deep-equal results", () => {
-    const i = inputs({ lidType: "half", legs: { face: "bottom", height: 100, section: 38, inset: 12 } })
+    const i = inputs({ lidType: "half", hingeSide: "short", legs: withLegs("tapered") })
     expect(buildBox(i)).toEqual(buildBox(i))
     expect(buildBox(i)).toEqual(buildBox(structuredClone(i)))
   })
 
   it("does not mutate its inputs", () => {
-    const i = inputs({ legs: { face: "bottom", height: 100, section: 38, inset: 12 } })
+    const i = inputs({ legs: withLegs("dowel") })
     const copy = structuredClone(i)
     buildBox(i)
     expect(i).toEqual(copy)
@@ -306,8 +358,8 @@ describe("determinism", () => {
   it("grain is null and ids are unique across configurations", () => {
     for (const lidPosition of ["top", "front"] as const)
       for (const lidType of ["full", "split", "half"] as const)
-        for (const face of [null, "bottom", "left"] as const) {
-          const r = buildBox(inputs({ lidPosition, lidType, legs: { face, height: 100, section: 38, inset: 12 } }))
+        for (const style of ["none", "dowel", "tapered"] as const) {
+          const r = buildBox(inputs({ lidPosition, lidType, legs: withLegs(style) }))
           expect(r.ok).toBe(true)
           const ids = r.parts.map((p) => p.id)
           expect(new Set(ids).size).toBe(ids.length)

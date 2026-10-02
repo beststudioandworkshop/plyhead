@@ -1,100 +1,126 @@
-import { LEG_FACES } from "./constants"
-import type { Axis, Box, Dims, Face, Issue, LegInputs, LidPosition, Vec3 } from "./types"
+import { polygonPart, partFromBox } from "./part"
+import type { Axis, Dims, Issue, LegInputs, Part, Vec3 } from "./types"
 
-export interface FaceOption {
-  face: Face
-  enabled: boolean
-  reason?: string
-}
+/**
+ * Legs always attach to the bottom and project below it (y from -height to 0).
+ * Corner order everywhere: back-left, back-right, front-left, front-right.
+ */
 
-/** Which leg faces are selectable for a given lid position (for greying out). */
-export function legFaceOptions(lid: LidPosition): FaceOption[] {
-  return LEG_FACES.map((face) =>
-    face === lid
-      ? { face, enabled: false, reason: "The lid is on this face" }
-      : { face, enabled: true },
-  )
-}
+const corners = (ext: Dims) => [
+  { left: true, back: true },
+  { left: false, back: true },
+  { left: true, back: false },
+  { left: false, back: false },
+].map((c) => ({ ...c, x0: c.left ? 0 : ext.w, z0: c.back ? 0 : ext.d }))
 
-/** Normal axis (0=x,1=y,2=z) and direction of each face. */
-const FACE_NORMAL: Record<Face, { axis: Axis; sign: 1 | -1 }> = {
-  top: { axis: 1, sign: 1 },
-  bottom: { axis: 1, sign: -1 },
-  front: { axis: 2, sign: 1 },
-  back: { axis: 2, sign: -1 },
-  right: { axis: 0, sign: 1 },
-  left: { axis: 0, sign: -1 },
-}
-
-const dimsToVec = (e: Dims): Vec3 => [e.w, e.h, e.d]
-
-export function validateLegs(legs: LegInputs, lid: LidPosition, ext: Dims): Issue[] {
-  if (legs.face === null) return []
+export function validateLegs(legs: LegInputs, thickness: number, ext: Dims): Issue[] {
+  if (legs.style === "none") return []
   const issues: Issue[] = []
+  const bad = (message: string) =>
+    issues.push({ code: "legs-invalid-size", message, field: "legs" })
 
-  if (legs.face === lid) {
-    issues.push({
-      code: "legs-on-lid-face",
-      message: `Legs can't go on the ${lid}, because that's where the lid is.`,
-      field: "legs.face",
-    })
-    return issues
-  }
+  if (!(legs.height > 0)) bad("Leg height must be greater than zero.")
 
-  if (!(legs.height > 0) || !(legs.section > 0) || legs.inset < 0 || !Number.isFinite(legs.inset)) {
-    issues.push({
-      code: "legs-invalid-size",
-      message: "Leg height and section must be positive, and the inset can't be negative.",
-      field: "legs",
-    })
-    return issues
-  }
+  const half = Math.min(ext.w, ext.d) / 2
 
-  const extV = dimsToVec(ext)
-  const { axis } = FACE_NORMAL[legs.face]
-  const inPlane = ([0, 1, 2] as Axis[]).filter((a) => a !== axis)
-  for (const a of inPlane) {
-    if (legs.inset + legs.section > extV[a] / 2 + 1e-9) {
+  if (legs.style === "dowel") {
+    if (!(legs.diameter > 0) || !(legs.inset >= 0)) {
+      bad("Dowel diameter must be greater than zero, and the inset can't be negative.")
+    } else if (legs.inset + legs.diameter > half + 1e-9) {
       issues.push({
         code: "legs-too-large-for-face",
-        message: "The legs (section plus inset) don't fit on that face. Reduce the section or the inset.",
+        message: "The dowels (diameter plus inset) don't fit on the bottom. Use thinner dowels or a smaller inset.",
         field: "legs",
       })
-      break
+    }
+  } else {
+    if (!(legs.width > 0) || !(legs.footWidth > 0)) {
+      bad("Leg widths must be greater than zero.")
+    } else if (legs.footWidth > legs.width) {
+      bad("The foot can't be wider than the top of the leg.")
+    } else if (legs.footWidth <= thickness) {
+      issues.push({
+        code: "legs-foot-too-narrow",
+        message: "The foot must be wider than the plywood is thick, or the second plate disappears.",
+        field: "legs",
+      })
+    } else if (legs.width > half + 1e-9) {
+      issues.push({
+        code: "legs-too-large-for-face",
+        message: "The legs are too wide for the bottom. Reduce the top width.",
+        field: "legs",
+      })
     }
   }
   return issues
 }
 
-/** Four corner posts on the chosen face, as world-space boxes. */
-export function buildLegBoxes(legs: LegInputs, ext: Dims): { box: Box; lengthAxis: Axis }[] {
-  if (legs.face === null) return []
-  const extV = dimsToVec(ext)
-  const { axis, sign } = FACE_NORMAL[legs.face]
-  const [a, b] = ([0, 1, 2] as Axis[]).filter((x) => x !== axis)
-  const s = legs.section
-  const spans = (len: number): [number, number][] => [
-    [legs.inset, legs.inset + s],
-    [len - legs.inset - s, len - legs.inset],
-  ]
-  const out: { box: Box; lengthAxis: Axis }[] = []
-  for (const [a0, a1] of spans(extV[a])) {
-    for (const [b0, b1] of spans(extV[b])) {
-      const min: Vec3 = [0, 0, 0]
-      const max: Vec3 = [0, 0, 0]
-      min[a] = a0
-      max[a] = a1
-      min[b] = b0
-      max[b] = b1
-      if (sign === 1) {
-        min[axis] = extV[axis]
-        max[axis] = extV[axis] + legs.height
-      } else {
-        min[axis] = -legs.height
-        max[axis] = 0
-      }
-      out.push({ box: { min, max }, lengthAxis: axis })
-    }
+export function buildLegParts(legs: LegInputs, thickness: number, ext: Dims): Part[] {
+  if (legs.style === "none") return []
+  const h = legs.height
+  const parts: Part[] = []
+
+  if (legs.style === "dowel") {
+    const r = legs.diameter / 2
+    corners(ext).forEach((c, i) => {
+      const cx = c.left ? legs.inset + r : ext.w - legs.inset - r
+      const cz = c.back ? legs.inset + r : ext.d - legs.inset - r
+      parts.push(
+        partFromBox(
+          { id: `leg-${i + 1}`, name: "Dowel leg", type: "leg", shape: "cylinder" },
+          { min: [cx - r, -h, cz - r], max: [cx + r, 0, cz + r] },
+          0,
+          1,
+        ),
+      )
+    })
+    return parts
   }
-  return out
+
+  // Tapered: plate A hugs the front/back face and runs along x at full width.
+  // Plate B hugs the side face and runs along z, starting where A ends, so
+  // the pair makes an L whose outer corner is flush with the box.
+  const W = legs.width
+  const F = legs.footWidth
+  const t = thickness
+  corners(ext).forEach((c, i) => {
+    const sx = c.left ? 1 : -1
+    const sz = c.back ? 1 : -1
+
+    const zA = c.back ? t / 2 : ext.d - t / 2
+    const vertsA: Vec3[] = [
+      [c.x0, 0, zA],
+      [c.x0 + sx * W, 0, zA],
+      [c.x0 + sx * F, -h, zA],
+      [c.x0, -h, zA],
+    ]
+    parts.push(
+      polygonPart(
+        { id: `leg-${i + 1}-a`, name: "Leg plate A", type: "leg", footWidth: F },
+        vertsA,
+        2,
+        1 as Axis,
+        t,
+      ),
+    )
+
+    const xB = c.left ? t / 2 : ext.w - t / 2
+    const zInner = c.back ? t : ext.d - t
+    const vertsB: Vec3[] = [
+      [xB, 0, zInner],
+      [xB, 0, c.z0 + sz * W],
+      [xB, -h, c.z0 + sz * F],
+      [xB, -h, zInner],
+    ]
+    parts.push(
+      polygonPart(
+        { id: `leg-${i + 1}-b`, name: "Leg plate B", type: "leg", footWidth: F - t },
+        vertsB,
+        0,
+        1 as Axis,
+        t,
+      ),
+    )
+  })
+  return parts
 }

@@ -18,7 +18,6 @@ import {
   type BoxInputs,
   type DimensionMode,
   type Dims,
-  type LidPosition,
   type Unit,
 } from "@/lib/box"
 
@@ -33,8 +32,9 @@ const INITIAL: BoxInputs = {
   thickness: THICKNESS_PRESETS[1].mm,
   lidPosition: "top",
   lidType: "full",
-  openLeaf: "right",
-  legs: { face: null, ...DEFAULT_LEGS },
+  openLeaf: "second",
+  hingeSide: "long",
+  legs: { style: "none", ...DEFAULT_LEGS },
   joinery: DEFAULT_JOINERY,
 }
 
@@ -79,14 +79,6 @@ export function BoxConfigurator() {
     if (preset) patch({ thickness: preset.mm })
   }
 
-  // The legs can't sit on the lid face, so moving the lid onto them removes them.
-  const changeLidPosition = (position: LidPosition) =>
-    setInputs((prev) => ({
-      ...prev,
-      lidPosition: position,
-      legs: prev.legs.face === position ? { ...prev.legs, face: null } : prev.legs,
-    }))
-
   const result = React.useMemo(() => buildBox(inputs), [inputs])
   const rows = React.useMemo(() => groupParts(result.parts), [result.parts])
 
@@ -95,7 +87,7 @@ export function BoxConfigurator() {
     h: result.bounds.max[1] - result.bounds.min[1],
     d: result.bounds.max[2] - result.bounds.min[2],
   }
-  const hasLegs = inputs.legs.face !== null
+  const hasLegs = inputs.legs.style !== "none"
 
   return (
     <div className="grid gap-6 lg:grid-cols-[26rem_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr] lg:items-start">
@@ -140,7 +132,7 @@ export function BoxConfigurator() {
             onMode={changeMode}
             onInputs={patch}
             onThicknessPreset={changePreset}
-            onLidPosition={changeLidPosition}
+            exterior={result.exterior}
             onLegs={(p) => setInputs((prev) => ({ ...prev, legs: { ...prev.legs, ...p } }))}
           />
         </CardContent>

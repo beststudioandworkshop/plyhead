@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { boxCenter, boxSize, eulerFromAxes, rotateVec } from "./rotation"
+import { boxCenter, boxSize, eulerFromAxes, inverseRotateVec, rotateVec } from "./rotation"
 import type { Axis, Vec3 } from "./types"
 
 const unit = (a: Axis): Vec3 => {
@@ -60,6 +60,54 @@ describe("eulerFromAxes", () => {
       expect(Math.abs(r[t])).toBeCloseTo(2, 9)
       expect(Math.abs(r[w])).toBeCloseTo(10, 9)
     }
+  })
+})
+
+describe("inverseRotateVec", () => {
+  const vectors: Vec3[] = [
+    [1, 0, 0],
+    [0, 1, 0],
+    [0, 0, 1],
+    [3, -4, 12],
+    [-7.5, 2.25, 0.125],
+  ]
+  const ARBITRARY: Vec3[] = [
+    [0, 0, 0],
+    [0.3, -0.7, 1.1],
+    [-2.5, 0.4, 3],
+    [Math.PI / 2, 0.2, -0.9],
+    [1.2, -1.4, 2.8],
+  ]
+
+  it.each(PERMS)("inverts rotateVec for permutation (%i, %i, %i)", (l, t, w) => {
+    const e = eulerFromAxes(l, t, w)
+    for (const v of vectors) {
+      expectVec(inverseRotateVec(e, rotateVec(e, v)), v)
+      expectVec(rotateVec(e, inverseRotateVec(e, v)), v)
+    }
+  })
+
+  it("maps a world axis back to the local axis it came from", () => {
+    for (const [l, t, w] of PERMS) {
+      const e = eulerFromAxes(l, t, w)
+      expectVec(inverseRotateVec(e, unit(l)), [1, 0, 0])
+      expectVec(inverseRotateVec(e, unit(t)), [0, 1, 0])
+      const z = inverseRotateVec(e, unit(w))
+      expect(Math.abs(z[2])).toBeCloseTo(1, 9)
+    }
+  })
+
+  it.each(ARBITRARY)("inverts rotateVec for arbitrary euler %#", (...e) => {
+    const euler = e as unknown as Vec3
+    for (const v of vectors) {
+      expectVec(inverseRotateVec(euler, rotateVec(euler, v)), v)
+      expectVec(rotateVec(euler, inverseRotateVec(euler, v)), v)
+    }
+  })
+
+  it("is the identity for zero rotation and preserves length", () => {
+    expectVec(inverseRotateVec([0, 0, 0], [1, 2, 3]), [1, 2, 3])
+    expect(Math.hypot(...inverseRotateVec([0.4, 1.1, -0.6], [3, 4, 12]))).toBeCloseTo(13, 9)
   })
 })
 

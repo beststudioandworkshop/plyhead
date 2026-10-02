@@ -1,9 +1,12 @@
 import { formatLength, formatThickness } from "./units"
-import type { Part, PartType, Unit } from "./types"
+import type { Part, PartShape, PartType, Unit } from "./types"
 
 export interface CutListRow {
   name: string
   type: PartType
+  shape: PartShape
+  /** Tapered plates: width at the foot (mm); `width` is the top width. */
+  footWidth?: number
   quantity: number
   /** Cut dimensions in mm. */
   length: number
@@ -22,6 +25,8 @@ export function groupParts(parts: Part[]): CutListRow[] {
     const row = rows.find(
       (r) =>
         r.name === p.name &&
+        r.shape === p.shape &&
+        Math.abs((r.footWidth ?? 0) - (p.footWidth ?? 0)) < SAME_CUT_MM &&
         Math.abs(r.length - p.length) < SAME_CUT_MM &&
         Math.abs(r.width - p.width) < SAME_CUT_MM &&
         Math.abs(r.thickness - p.thickness) < SAME_CUT_MM,
@@ -33,6 +38,8 @@ export function groupParts(parts: Part[]): CutListRow[] {
       rows.push({
         name: p.name,
         type: p.type,
+        shape: p.shape,
+        ...(p.footWidth !== undefined ? { footWidth: p.footWidth } : {}),
         quantity: 1,
         length: p.length,
         width: p.width,
@@ -52,15 +59,29 @@ export interface CutListCells {
   thickness: string
 }
 
-/** Display strings for a row: 1/16" fractions (or mm), thickness as a decimal. */
+/**
+ * Display strings for a row: 1/16" fractions (or mm), thickness as a decimal.
+ * Dowels show their diameter (Ø) and no thickness; tapered plates show
+ * top → foot width.
+ */
 export function formatRow(row: CutListRow, unit: Unit): CutListCells {
-  return {
+  const base = {
     name: row.name,
     quantity: String(row.quantity),
     length: formatLength(row.length, unit),
-    width: formatLength(row.width, unit),
-    thickness: formatThickness(row.thickness, unit),
   }
+  if (row.shape === "cylinder") {
+    return { ...base, width: `Ø${formatLength(row.width, unit)}`, thickness: "round" }
+  }
+  const thickness = formatThickness(row.thickness, unit)
+  if (row.shape === "polygon" && row.footWidth !== undefined) {
+    return {
+      ...base,
+      width: `${formatLength(row.width, unit)} → ${formatLength(row.footWidth, unit)}`,
+      thickness,
+    }
+  }
+  return { ...base, width: formatLength(row.width, unit), thickness }
 }
 
 const csvCell = (value: string) => (/[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value)

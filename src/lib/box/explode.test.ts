@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest"
 import { buildBox } from "./build"
 import { centerOf, defaultExplodeDistance, explodeOffset, viewRadius } from "./explode"
-import type { BoxInputs, BoxResult, Face, LidPosition, LidType, Part, Vec3 } from "./types"
+import type { BoxInputs, BoxResult, LegStyle, LidPosition, LidType, Part, Vec3 } from "./types"
 import { inToMm } from "./units"
 
 const inputs = (overrides: Partial<BoxInputs> = {}): BoxInputs => ({
@@ -11,17 +11,25 @@ const inputs = (overrides: Partial<BoxInputs> = {}): BoxInputs => ({
   thickness: 18,
   lidPosition: "top",
   lidType: "full",
-  openLeaf: "right",
-  legs: { face: null, height: 100, section: 38, inset: 12 },
+  hingeSide: "long",
+  openLeaf: "second",
+  legs: { style: "none", height: 100, diameter: 38, inset: 12, width: 76, footWidth: 38 },
   joinery: "butt",
   ...overrides,
 })
 
-const withLegs = (face: Face | null): BoxInputs["legs"] => ({ face, height: 100, section: 38, inset: 12 })
+const withLegs = (style: LegStyle): BoxInputs["legs"] => ({
+  style,
+  height: 100,
+  diameter: 38,
+  inset: 12,
+  width: 76,
+  footWidth: 38,
+})
 
 const LID_POSITIONS: LidPosition[] = ["top", "front"]
 const LID_TYPES: LidType[] = ["full", "split", "half"]
-const LEG_FACES_ALL: (Face | null)[] = [null, "bottom", "back", "left", "right"]
+const LEG_STYLES: LegStyle[] = ["none", "dowel", "tapered"]
 
 const centreOfExterior = (r: BoxResult): Vec3 => [r.exterior.w / 2, r.exterior.h / 2, r.exterior.d / 2]
 
@@ -30,7 +38,7 @@ const DISTANCE = 40
 const nonZero = (v: Vec3) => v.filter((c) => c !== 0)
 
 /** Expected unit direction (axis, sign) for a part. */
-function expectedDir(part: Part, lid: LidPosition, legFace: Face | null): [number, 1 | -1] {
+function expectedDir(part: Part, lid: LidPosition): [number, 1 | -1] {
   switch (part.id) {
     case "left":
       return [0, -1]
@@ -46,27 +54,17 @@ function expectedDir(part: Part, lid: LidPosition, legFace: Face | null): [numbe
       return [1, 1]
   }
   if (part.type === "lid") return lid === "top" ? [1, 1] : [2, 1]
-  if (part.type === "leg") {
-    const map: Record<Face, [number, 1 | -1]> = {
-      bottom: [1, -1],
-      top: [1, 1],
-      back: [2, -1],
-      front: [2, 1],
-      left: [0, -1],
-      right: [0, 1],
-    }
-    return map[legFace!]
-  }
+  // Legs always drop straight down.
+  if (part.type === "leg") return [1, -1]
   throw new Error(`unexpected part ${part.id}`)
 }
 
 describe("explodeOffset", () => {
   for (const lidPosition of LID_POSITIONS) {
     for (const lidType of LID_TYPES) {
-      for (const face of LEG_FACES_ALL) {
-        if (face === lidPosition) continue
-        const label = `lid ${lidPosition}/${lidType}, legs ${face ?? "none"}`
-        const result = buildBox(inputs({ lidPosition, lidType, legs: withLegs(face) }))
+      for (const style of LEG_STYLES) {
+        const label = `lid ${lidPosition}/${lidType}, legs ${style}`
+        const result = buildBox(inputs({ lidPosition, lidType, legs: withLegs(style) }))
 
         it(`builds a valid box (${label})`, () => {
           expect(result.ok).toBe(true)
@@ -86,13 +84,37 @@ describe("explodeOffset", () => {
           const c = centreOfExterior(result)
           for (const part of result.parts) {
             const off = explodeOffset(part, c, DISTANCE)
-            const [axis, sign] = expectedDir(part, lidPosition, face)
+            const [axis, sign] = expectedDir(part, lidPosition)
             expect(off[axis], part.id).toBe(sign * DISTANCE)
           }
         })
       }
     }
   }
+
+  it("legs always go exactly [0, -distance, 0], wherever they are", () => {
+    for (const style of ["dowel", "tapered"] as const) {
+      const r = buildBox(inputs({ legs: withLegs(style) }))
+      const legs = r.parts.filter((p) => p.type === "leg")
+      expect(legs).toHaveLength(style === "dowel" ? 4 : 8)
+      for (const p of legs) {
+        expect(explodeOffset(p, centreOfExterior(r), DISTANCE)).toEqual([0, -DISTANCE, 0])
+        // even for a centre that would otherwise point sideways
+        expect(explodeOffset(p, [0, -1000, 0], DISTANCE)).toEqual([0, -DISTANCE, 0])
+        expect(explodeOffset(p, [1e6, 0, 1e6], DISTANCE)).toEqual([0, -DISTANCE, 0])
+      }
+    }
+  })
+
+  it("non-leg parts still move along their thinnest axis, away from the centre", () => {
+    const r = buildBox(inputs({ legs: withLegs("tapered") }))
+    const c = centreOfExterior(r)
+    for (const p of r.parts.filter((x) => x.type !== "leg")) {
+      const axis = [0, 1, 2].reduce((best, a) => (p.extents[a] < p.extents[best] ? a : best), 0)
+      const off = explodeOffset(p, c, DISTANCE)
+      expect(off[axis]).toBe(p.center[axis] >= c[axis] ? DISTANCE : -DISTANCE)
+    }
+  })
 
   it("pushes the top panel of a front-lid box up", () => {
     const r = buildBox(inputs({ lidPosition: "front" }))
@@ -156,8 +178,11 @@ describe("exploded overlaps", () => {
   const overlaps = (a: Aabb, b: Aabb) =>
     [0, 1, 2].every((i) => a.lo[i] < b.hi[i] - TOL && b.lo[i] < a.hi[i] - TOL)
 
-  it("does not create new overlaps in the default top-lid full box", () => {
-    const r = buildBox(inputs())
+  const cases: [LidPosition, LegStyle][] = []
+  for (const lp of LID_POSITIONS) for (const st of LEG_STYLES) cases.push([lp, st])
+
+  it.each(cases)("does not create new overlaps (%s lid, legs %s)", (lidPosition, style) => {
+    const r = buildBox(inputs({ lidPosition, legs: withLegs(style) }))
     const c = centreOfExterior(r)
     const dist = defaultExplodeDistance(r.exterior)
     const offsets = r.parts.map((p) => explodeOffset(p, c, dist))

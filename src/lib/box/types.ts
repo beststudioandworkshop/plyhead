@@ -24,28 +24,41 @@ export interface Dims {
   h: number
 }
 
-export type Face = "top" | "bottom" | "front" | "back" | "left" | "right"
 export type LidPosition = "top" | "front"
 export type LidType = "full" | "split" | "half"
 export type DimensionMode = "exterior" | "interior"
 export type Unit = "in" | "mm"
 export type JoineryId = "butt"
-export type LeafSide = "left" | "right"
+/** Which half of a split/half lid: "first" is the lower end of the cross axis (back, bottom or left). */
+export type LeafSide = "first" | "second"
+/** Whether the lid hinges along its long or its short edge. */
+export type HingeSide = "long" | "short"
 
 export type PartType = "side" | "front" | "back" | "top" | "bottom" | "lid" | "leg"
 
 /** Grain direction relative to the part's length. Unused in v1; reserved. */
 export type Grain = "length" | "width" | null
 
+export type LegStyle = "none" | "dowel" | "tapered"
+
+/**
+ * Legs always attach to the bottom. Two styles:
+ *  - dowel:   four round dowels at the corners.
+ *  - tapered: at each corner, two plywood plates joined in an L around the
+ *             corner, narrowing from `width` at the top to `footWidth` at the floor.
+ */
 export interface LegInputs {
-  /** Face the legs attach to, or null for no legs. */
-  face: Face | null
-  /** How far the legs project from the face (mm). */
+  style: LegStyle
+  /** How far the legs project below the bottom (mm). */
   height: number
-  /** Square post section (mm). */
-  section: number
-  /** Distance from the face edges to the leg's outer faces (mm). */
+  /** Dowel diameter (mm). Dowels only. */
+  diameter: number
+  /** Distance from the bottom's edges to the dowel's outer surface (mm). Dowels only. */
   inset: number
+  /** Outer size of the L at the top, i.e. plate width at the top (mm). Tapered only. */
+  width: number
+  /** Outer size of the L at the foot (mm). Tapered only. */
+  footWidth: number
 }
 
 export interface BoxInputs {
@@ -60,12 +73,15 @@ export interface BoxInputs {
   lidType: LidType
   /** Half lid only: which leaf opens. The other is fixed. */
   openLeaf: LeafSide
+  hingeSide: HingeSide
   legs: LegInputs
   joinery: JoineryId
 }
 
+export type PartShape = "box" | "cylinder" | "polygon"
+
 export interface HingeEdge {
-  edge: "left" | "right" | "back"
+  edge: "left" | "right" | "back" | "front" | "bottom" | "top"
   /** Hinge line in world coordinates (mm). */
   from: Vec3
   to: Vec3
@@ -90,6 +106,16 @@ export interface Part {
   center: Vec3
   rotation: Vec3
   extents: Vec3
+  /** "box" for ordinary boards, "cylinder" for dowels, "polygon" for tapered plates. */
+  shape: PartShape
+  /**
+   * Polygon parts only: the outline in the part's local frame (x = along
+   * length, y = across width, both relative to `center`), in mm.
+   * The board is `thickness` thick, centred on this outline's plane.
+   */
+  outline?: [number, number][]
+  /** Tapered plates only: width at the foot (mm). `width` is the width at the top. */
+  footWidth?: number
   grain: Grain
   hinge?: HingeEdge
 }
@@ -98,9 +124,9 @@ export type IssueCode =
   | "non-positive-dimension"
   | "non-positive-thickness"
   | "interior-too-small"
-  | "legs-on-lid-face"
   | "legs-invalid-size"
   | "legs-too-large-for-face"
+  | "legs-foot-too-narrow"
 
 export interface Issue {
   code: IssueCode

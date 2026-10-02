@@ -2,19 +2,22 @@
 
 import { Choice } from "./choice"
 import { DimensionInput } from "./dimension-input"
-import { SIZE_HINTS } from "./hints"
+import { SIZE_HINTS, pickHint, useTipSeed } from "./hints"
 import { FieldGroup, Field, FieldLabel, FieldTitle, FieldDescription } from "@/components/ui/field"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import {
-  LEG_FACES,
   THICKNESS_PRESETS,
+  formatLength,
   formatThickness,
-  legFaceOptions,
+  lidAxes,
+  type Axis,
   type BoxInputs,
   type DimensionMode,
-  type Face,
+  type Dims,
+  type HingeSide,
   type LeafSide,
+  type LegStyle,
   type LidPosition,
   type LidType,
   type Unit,
@@ -35,24 +38,30 @@ interface ControlsProps {
   onMode: (mode: DimensionMode) => void
   onInputs: (patch: Partial<BoxInputs>) => void
   onThicknessPreset: (id: string) => void
-  onLidPosition: (position: LidPosition) => void
+  /** Exterior size in mm; used to describe the lid's edges. */
+  exterior: Dims
   onLegs: (patch: Partial<BoxInputs["legs"]>) => void
 }
 
-const FACE_LABEL: Record<Face, string> = {
-  bottom: "Bottom",
-  back: "Back",
-  left: "Left",
-  right: "Right",
-  front: "Front",
-  top: "Top",
+/** Names for the two halves of a split lid, by the axis they split across. */
+const LEAF_LABELS: Record<Axis, [string, string]> = {
+  0: ["Left", "Right"],
+  1: ["Bottom", "Top"],
+  2: ["Back", "Front"],
 }
 
-export function Controls({ state, onUnit, onMode, onInputs, onThicknessPreset, onLidPosition, onLegs }: ControlsProps) {
+export function Controls({ state, exterior, onUnit, onMode, onInputs, onThicknessPreset, onLegs }: ControlsProps) {
   const { inputs, unit, thicknessPreset } = state
+  const tipSeed = useTipSeed()
   const interior = inputs.dimensionMode === "interior"
-  const faceOptions = legFaceOptions(inputs.lidPosition)
-  const hasLegs = inputs.legs.face !== null
+  const legStyle = inputs.legs.style
+  // Lid size in the x/y/z frame; only the two in-plane axes matter.
+  const lid = lidAxes([exterior.w, exterior.h, exterior.d], inputs.lidPosition, inputs.hingeSide)
+  const [firstLeaf, secondLeaf] = LEAF_LABELS[lid.crossAxis]
+  const lidEdges = {
+    long: Math.max(lid.hingeLength, lid.crossLength),
+    short: Math.min(lid.hingeLength, lid.crossLength),
+  }
 
   const setDim = (key: "w" | "d" | "h") => (mm: number) => onInputs({ dims: { ...inputs.dims, [key]: mm } })
 
@@ -97,7 +106,7 @@ export function Controls({ state, onUnit, onMode, onInputs, onThicknessPreset, o
         valueMm={inputs.dims.w}
         unit={unit}
         onChange={setDim("w")}
-        description={SIZE_HINTS.w(unit)}
+        description={pickHint(SIZE_HINTS.w, tipSeed, 0, unit)}
       />
       <DimensionInput
         id="box-d"
@@ -105,7 +114,7 @@ export function Controls({ state, onUnit, onMode, onInputs, onThicknessPreset, o
         valueMm={inputs.dims.d}
         unit={unit}
         onChange={setDim("d")}
-        description={SIZE_HINTS.d(unit)}
+        description={pickHint(SIZE_HINTS.d, tipSeed, 1, unit)}
       />
       <DimensionInput
         id="box-h"
@@ -113,7 +122,7 @@ export function Controls({ state, onUnit, onMode, onInputs, onThicknessPreset, o
         valueMm={inputs.dims.h}
         unit={unit}
         onChange={setDim("h")}
-        description={SIZE_HINTS.h(unit)}
+        description={pickHint(SIZE_HINTS.h, tipSeed, 2, unit)}
       />
 
       {interior ? (
@@ -172,7 +181,7 @@ export function Controls({ state, onUnit, onMode, onInputs, onThicknessPreset, o
         <Choice<LidPosition>
           label="Lid position"
           value={inputs.lidPosition}
-          onChange={onLidPosition}
+          onChange={(lidPosition) => onInputs({ lidPosition })}
           options={[
             { value: "top", label: "Top" },
             { value: "front", label: "Front" },
@@ -201,6 +210,22 @@ export function Controls({ state, onUnit, onMode, onInputs, onThicknessPreset, o
         </FieldDescription>
       </Field>
 
+      <Field>
+        <FieldTitle>Hinge side</FieldTitle>
+        <Choice<HingeSide>
+          label="Hinge side"
+          value={inputs.hingeSide}
+          onChange={(hingeSide) => onInputs({ hingeSide })}
+          options={[
+            { value: "long", label: "Long" },
+            { value: "short", label: "Short" },
+          ]}
+        />
+        <FieldDescription>
+          The hinge runs along the {formatLength(lidEdges[inputs.hingeSide], unit)} edge of the lid.
+        </FieldDescription>
+      </Field>
+
       {inputs.lidType === "half" ? (
         <Field>
           <FieldTitle>Opening half</FieldTitle>
@@ -209,8 +234,8 @@ export function Controls({ state, onUnit, onMode, onInputs, onThicknessPreset, o
             value={inputs.openLeaf}
             onChange={(openLeaf) => onInputs({ openLeaf })}
             options={[
-              { value: "left", label: "Left" },
-              { value: "right", label: "Right" },
+              { value: "first", label: firstLeaf },
+              { value: "second", label: secondLeaf },
             ]}
           />
         </Field>
@@ -220,28 +245,26 @@ export function Controls({ state, onUnit, onMode, onInputs, onThicknessPreset, o
 
       <Field>
         <FieldTitle>Legs</FieldTitle>
-        <Choice<string>
-          label="Face the legs attach to"
-          size="sm"
-          value={inputs.legs.face ?? "none"}
-          onChange={(v) => onLegs({ face: v === "none" ? null : (v as Face) })}
+        <Choice<LegStyle>
+          label="Leg style"
+          value={legStyle}
+          onChange={(style) => onLegs({ style })}
           options={[
             { value: "none", label: "None" },
-            ...LEG_FACES.map((face) => {
-              const opt = faceOptions.find((o) => o.face === face)!
-              return {
-                value: face,
-                label: FACE_LABEL[face],
-                disabled: !opt.enabled,
-                title: opt.reason,
-              }
-            }),
+            { value: "dowel", label: "Dowels" },
+            { value: "tapered", label: "Tapered" },
           ]}
         />
-        <FieldDescription>Greyed-out faces are where the lid is.</FieldDescription>
+        <FieldDescription>
+          {legStyle === "none"
+            ? "Sits flat on the floor."
+            : legStyle === "dowel"
+              ? "Four thick round dowels that screw into the bottom."
+              : "Two plywood plates per corner, joined in an L and narrowing toward the floor. They screw up into the bottom."}
+        </FieldDescription>
       </Field>
 
-      {hasLegs ? (
+      {legStyle !== "none" ? (
         <div className="grid grid-cols-3 gap-3">
           <DimensionInput
             id="leg-height"
@@ -250,21 +273,42 @@ export function Controls({ state, onUnit, onMode, onInputs, onThicknessPreset, o
             unit={unit}
             onChange={(mm) => onLegs({ height: mm })}
           />
-          <DimensionInput
-            id="leg-section"
-            label="Leg section"
-            valueMm={inputs.legs.section}
-            unit={unit}
-            onChange={(mm) => onLegs({ section: mm })}
-          />
-          <DimensionInput
-            id="leg-inset"
-            label="Inset"
-            valueMm={inputs.legs.inset}
-            unit={unit}
-            minMm={0}
-            onChange={(mm) => onLegs({ inset: mm })}
-          />
+          {legStyle === "dowel" ? (
+            <>
+              <DimensionInput
+                id="leg-diameter"
+                label="Diameter"
+                valueMm={inputs.legs.diameter}
+                unit={unit}
+                onChange={(mm) => onLegs({ diameter: mm })}
+              />
+              <DimensionInput
+                id="leg-inset"
+                label="Inset"
+                valueMm={inputs.legs.inset}
+                unit={unit}
+                minMm={0}
+                onChange={(mm) => onLegs({ inset: mm })}
+              />
+            </>
+          ) : (
+            <>
+              <DimensionInput
+                id="leg-width"
+                label="Top width"
+                valueMm={inputs.legs.width}
+                unit={unit}
+                onChange={(mm) => onLegs({ width: mm })}
+              />
+              <DimensionInput
+                id="leg-foot"
+                label="Foot width"
+                valueMm={inputs.legs.footWidth}
+                unit={unit}
+                onChange={(mm) => onLegs({ footWidth: mm })}
+              />
+            </>
+          )}
         </div>
       ) : null}
     </FieldGroup>

@@ -15,12 +15,14 @@ function axisOf(extents: Vec3, pick: "min" | "max"): 0 | 1 | 2 {
 
 /**
  * How far to push a part away from the box centre when exploded.
- * Panels move along their thickness axis (the way they'd be pulled off),
- * legs along their length. The direction is away from `boxCenter`.
+ * Panels move along their thickness axis (the way they'd be pulled off) and
+ * legs drop straight down. The direction is away from `boxCenter`.
  * Returns a vector with at most one non-zero component, of size `distance`.
  */
 export function explodeOffset(part: Part, boxCenter: Vec3, distance: number): Vec3 {
-  const axis = axisOf(part.extents, part.type === "leg" ? "max" : "min")
+  // Legs are always on the bottom, so they drop straight down.
+  if (part.type === "leg") return [0, -distance, 0]
+  const axis = axisOf(part.extents, "min")
   const sign = part.center[axis] >= boxCenter[axis] ? 1 : -1
   const out: Vec3 = [0, 0, 0]
   out[axis] = sign * distance
