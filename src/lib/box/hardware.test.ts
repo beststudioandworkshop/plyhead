@@ -133,7 +133,7 @@ describe("lid hardware by hinge edge", () => {
     const l = hardwareList(i, r, "in")
     const edge = lids[0].hinge!.edge
     if (edge === "bottom") {
-      expect(find(l, "Lid stay (chain or folding stay)")!.qty).toBe(2)
+      expect(find(l, "Door stay (chain or folding stay)")!.qty).toBe(2)
     } else {
       expect(["left", "right"]).toContain(edge)
     }
@@ -145,9 +145,45 @@ describe("lid hardware by hinge edge", () => {
       const r = buildBox(i)
       const edge = r.parts.find((p) => p.hinge)!.hinge!.edge
       const l = hardwareList(i, r, "in")
-      if (edge === "bottom") expect(find(l, "Lid stay (chain or folding stay)")!.qty).toBe(2)
+      if (edge === "bottom") expect(find(l, "Door stay (chain or folding stay)")!.qty).toBe(2)
       if (edge === "left" || edge === "right") expect(find(l, "Magnetic catch")!.qty).toBe(1)
     }
+  })
+
+  it("front lid hardware says Door, never Lid, with unchanged ids", () => {
+    for (const hingeSide of ["long", "short"] as const)
+      for (const lidType of ["full", "split", "half"] as const) {
+        const i = inputs({ lidPosition: "front", lidType, hingeSide })
+        const l = hardwareList(i, buildBox(i), "in").filter((x) => x.category === "lid")
+        expect(l.length).toBeGreaterThan(0)
+        for (const x of l) {
+          expect(x.name.toLowerCase()).not.toContain("lid")
+          expect(x.spec.toLowerCase()).not.toContain("lid")
+        }
+        expect(find(l, "Door pull or knob")?.id).toBe("lid-pull")
+      }
+  })
+
+  it("front lid names and specs for each hinge edge", () => {
+    const seen = new Set<string>()
+    for (const hingeSide of ["long", "short"] as const) {
+      const i = inputs({ lidPosition: "front", hingeSide })
+      const r = buildBox(i)
+      const l = hardwareList(i, r, "in")
+      const edge = r.parts.find((p) => p.hinge)!.hinge!.edge
+      seen.add(edge)
+      expect(find(l, "Door pull or knob")).toMatchObject({ id: "lid-pull", spec: "Surface mount" })
+      if (edge === "bottom")
+        expect(find(l, "Door stay (chain or folding stay)")).toMatchObject({ id: "lid-stay-chain", spec: "Holds the door level when open" })
+      else expect(find(l, "Magnetic catch")?.id).toBe("lid-catch")
+    }
+    expect(seen.size).toBeGreaterThan(0)
+  })
+
+  it("top lid hardware keeps the Lid wording", () => {
+    const l = list()
+    expect(find(l, "Lid support (stay)")).toMatchObject({ id: "lid-support", spec: "Hinged lid support" })
+    expect(l.some((x) => x.name.startsWith("Door"))).toBe(false)
   })
 
   it("front doors (split) get magnetic catches", () => {

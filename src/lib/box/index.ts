@@ -61,3 +61,4 @@ export {
 } from "./estimate"
 export type { Cut, FirstCut, NestOptions, NestStrategy } from "./nesting"
 export { toolsList, type ToolItem } from "./tools-list"
+export { lidWord, dividerWord, capitalize, partTypeLabel } from "./words"

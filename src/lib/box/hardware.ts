@@ -1,3 +1,4 @@
+import { capitalize, lidWord } from "./words"
 import { MM_PER_INCH } from "./constants"
 import { estimateJointLength, screwAdvice, screwCount, type ScrewTierAdvice } from "./screws"
 import type { BoxInputs, BoxResult, Part, Unit } from "./types"
@@ -79,20 +80,22 @@ export function hardwareList(inputs: BoxInputs, result: BoxResult, unit: Unit): 
     }
   }
 
-  // Lid hardware
+  // Lid (or door) hardware
+  const Lid = capitalize(lidWord(inputs.lidPosition))
+  const lid = lidWord(inputs.lidPosition)
   for (const p of hingedParts) {
     if (p.type !== "lid") continue
-    add({ id: "lid-pull", category: "lid", name: "Lid pull or knob", spec: "Surface mount", qty: 1 })
+    add({ id: "lid-pull", category: "lid", name: `${Lid} pull or knob`, spec: "Surface mount", qty: 1 })
     switch (p.hinge!.edge) {
       case "back":
-        add({ id: "lid-support", category: "lid", name: "Lid support (stay)", spec: "Hinged lid support", qty: 1 })
+        add({ id: "lid-support", category: "lid", name: `${Lid} support (stay)`, spec: `Hinged ${lid} support`, qty: 1 })
         break
       case "bottom":
         add({
           id: "lid-stay-chain",
           category: "lid",
-          name: "Lid stay (chain or folding stay)",
-          spec: "Holds the lid level when open",
+          name: `${Lid} stay (chain or folding stay)`,
+          spec: `Holds the ${lid} level when open`,
           qty: 2,
         })
         break
@@ -101,7 +104,7 @@ export function hardwareList(inputs: BoxInputs, result: BoxResult, unit: Unit): 
         add({ id: "lid-catch", category: "lid", name: "Magnetic catch", spec: "Surface mount", qty: 1 })
         break
       default:
-        add({ id: "lid-stay", category: "lid", name: "Lid stay", spec: "Holds the lid open", qty: 2 })
+        add({ id: "lid-stay", category: "lid", name: `${Lid} stay`, spec: `Holds the ${lid} open`, qty: 2 })
     }
   }
 

@@ -58,6 +58,22 @@ describe("build request text", () => {
     expect(b).toContain("Birch, please.")
   })
 
+  it("front lid: the line says Door and dividers become Shelves", () => {
+    const i: BoxInputs = { ...inputs, lidPosition: "front", lidType: "full", dividers: 2 }
+    const r = buildBox(i)
+    const b = requestBody(args({ inputs: i, exterior: r.exterior, interior: r.interior }))
+    expect(b).toContain("Door: front, full, hinged on the long side")
+    expect(b).toContain("Shelves: 2")
+    expect(b).not.toContain("Lid:")
+    expect(b).not.toContain("Dividers:")
+  })
+
+  it("top lid: the line says Lid and Dividers", () => {
+    const b = requestBody(args())
+    expect(b).not.toContain("Door:")
+    expect(b).not.toContain("Shelves:")
+  })
+
   it("marks missing contact fields and omits empty notes", () => {
     const b = requestBody(args({ contact: { name: "", email: "", zip: "", notes: "   " } }))
     expect(b).toContain("Name: (not given)")

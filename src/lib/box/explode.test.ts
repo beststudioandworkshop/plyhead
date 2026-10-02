@@ -200,6 +200,21 @@ describe("exploded overlaps", () => {
   for (const lp of LID_POSITIONS)
     for (const st of LEG_STYLES) for (const dv of [0, 1, 3]) cases.push([lp, st, dv])
 
+  it.each([2, 3] as const)("front-lid shelves explode without new overlaps (%i shelves, all lid types)", (dividers) => {
+    for (const lidType of LID_TYPES) {
+      const r = buildBox(inputs({ lidPosition: "front", lidType, dividers }))
+      expect(r.ok).toBe(true)
+      const c = centreOfExterior(r)
+      const dist = defaultExplodeDistance(r.exterior)
+      const offsets = r.parts.map((p) => explodeOffset(p, c, dist))
+      for (let i = 0; i < r.parts.length; i++)
+        for (let j = i + 1; j < r.parts.length; j++) {
+          if (overlaps(aabb(r.parts[i]), aabb(r.parts[j]))) continue
+          expect(overlaps(aabb(r.parts[i], offsets[i]), aabb(r.parts[j], offsets[j])), `${lidType} ${r.parts[i].id} vs ${r.parts[j].id}`).toBe(false)
+        }
+    }
+  })
+
   it.each(cases)("does not create new overlaps (%s lid, legs %s, %i dividers)", (lidPosition, style, dividers) => {
     const r = buildBox(inputs({ lidPosition, dividers, legs: withLegs(style) }))
     const c = centreOfExterior(r)

@@ -1,4 +1,5 @@
 import { formatLength } from "./units"
+import { capitalize, lidWord } from "./words"
 import type { BoxInputs, Dims, Unit } from "./types"
 
 /**
@@ -53,9 +54,9 @@ export function requestBody(args: RequestArgs): string {
     `Outside (W × D × H): ${dims(args.exterior, unit)}`,
     `Inside (W × D × H): ${dims(args.interior, unit)}`,
     `Plywood: ${formatLength(i.thickness, unit)} thick`,
-    `Lid: ${i.lidPosition}, ${i.lidType}, hinged on the ${i.hingeSide} side`,
+    `${capitalize(lidWord(i.lidPosition))}: ${i.lidPosition}, ${i.lidType}, hinged on the ${i.hingeSide} side`,
     `Bottom: ${i.bottomStyle === "lap" ? "under the walls" : "between the walls"}`,
-    `Dividers: ${i.dividers}`,
+    `${i.lidPosition === "front" ? "Shelves" : "Dividers"}: ${i.dividers}`,
     `Legs: ${LEG_TEXT[i.legs.style]}`,
   ]
   if (args.estimate) {

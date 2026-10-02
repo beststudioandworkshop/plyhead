@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator"
 import {
   MAX_DIVIDERS,
+  capitalize,
+  lidWord,
   SHEET_PRESETS,
   THICKNESS_PRESETS,
   formatLength,
@@ -79,6 +81,11 @@ export function Controls({
   const tipSeed = useTipSeed()
   const interior = inputs.dimensionMode === "interior"
   const legStyle = inputs.legs.style
+  const front = inputs.lidPosition === "front"
+  const lw = lidWord(inputs.lidPosition)
+  const Lw = capitalize(lw)
+  // Only a split or half lid on TOP needs a divider right under its seam.
+  const seamRule = !front && inputs.lidType !== "full"
   // Lid size in the x/y/z frame; only the two in-plane axes matter.
   const lid = lidAxes([exterior.w, exterior.h, exterior.d], inputs.lidPosition, inputs.hingeSide)
   const lidEdges = {
@@ -200,22 +207,22 @@ export function Controls({
       <Separator />
 
       <Field>
-        <FieldTitle>Lid position</FieldTitle>
+        <FieldTitle>Opening</FieldTitle>
         <Choice<LidPosition>
-          label="Lid position"
+          label="Opening"
           value={inputs.lidPosition}
           onChange={(lidPosition) => onInputs({ lidPosition })}
           options={[
-            { value: "top", label: "Top" },
-            { value: "front", label: "Front" },
+            { value: "top", label: "Top lid" },
+            { value: "front", label: "Front door" },
           ]}
         />
       </Field>
 
       <Field>
-        <FieldTitle>Lid type</FieldTitle>
+        <FieldTitle>{Lw} type</FieldTitle>
         <Choice<LidType>
-          label="Lid type"
+          label={`${Lw} type`}
           value={inputs.lidType}
           onChange={(lidType) => onInputs({ lidType })}
           options={[
@@ -228,7 +235,7 @@ export function Controls({
           {inputs.lidType === "full"
             ? "One panel covers the whole opening."
             : inputs.lidType === "split"
-              ? "Two equal leaves meet in the middle, and both open."
+              ? `Two equal ${front ? "doors" : "leaves"} meet in the middle, and both open.`
               : "One half is fixed, the other half opens."}
         </FieldDescription>
       </Field>
@@ -245,7 +252,7 @@ export function Controls({
           ]}
         />
         <FieldDescription>
-          The hinge runs along the {formatLength(lidEdges[inputs.hingeSide], unit)} edge of the lid.
+          The hinge runs along the {formatLength(lidEdges[inputs.hingeSide], unit)} edge of the {lw}.
         </FieldDescription>
       </Field>
 
@@ -285,14 +292,14 @@ export function Controls({
       </Field>
 
       <Field>
-        <FieldTitle>Dividers</FieldTitle>
+        <FieldTitle>{front ? "Shelves" : "Dividers"}</FieldTitle>
         <Choice<string>
-          label="Number of dividers"
+          label={front ? "Number of shelves" : "Number of dividers"}
           value={String(inputs.dividers)}
           onChange={(v) => onInputs({ dividers: Number(v) })}
           options={Array.from({ length: MAX_DIVIDERS + 1 }, (_, n) => {
             // A split lid needs a divider under its seam, which only odd counts give.
-            const noSeam = inputs.lidType !== "full" && n > 0 && n % 2 === 0
+            const noSeam = seamRule && n > 0 && n % 2 === 0
             return {
               value: String(n),
               label: n === 0 ? "None" : String(n),
@@ -306,9 +313,11 @@ export function Controls({
             ? "Tip: a divider under the seam gives both lid halves something to rest on."
             : dividerTip === "span"
               ? "Tip: this is a long span. A divider keeps the bottom and lid from sagging."
-              : inputs.lidType !== "full" && inputs.dividers > 0
-                ? "One divider sits right under the lid seam, so both halves rest on it."
-                : "Panels that split the inside. They never block the opening."}
+              : front
+                ? "Horizontal shelves, spaced evenly up the inside. They never block the door."
+                : seamRule && inputs.dividers > 0
+                  ? "One divider sits right under the lid seam, so both halves rest on it."
+                  : "Panels that split the inside. They never block the opening."}
         </FieldDescription>
       </Field>
 

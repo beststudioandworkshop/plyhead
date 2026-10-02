@@ -1,4 +1,5 @@
 import { LEAF_GAP_MM } from "./constants"
+import { capitalize, lidWord } from "./words"
 import type { Axis, Box, HingeEdge, HingeSide, LeafSide, LidPosition, LidType, Vec3 } from "./types"
 
 export interface LidPanel {
@@ -101,9 +102,11 @@ export function buildLid(
     slab.max[2] - slab.min[2],
   ]
   const axes = lidAxes(size, lid, hingeSide)
+  // "Lid" on top, "Door" on the front.
+  const word = capitalize(lidWord(lid))
 
   if (type === "full") {
-    return [{ id: "lid", name: "Lid", box: slab, hinge: hingeLine(slab, axes, "min") }]
+    return [{ id: "lid", name: word, box: slab, hinge: hingeLine(slab, axes, "min") }]
   }
 
   const [first, second] = splitAcross(slab, SPLIT_AXIS, type === "split" ? gap : 0)
@@ -114,8 +117,8 @@ export function buildLid(
 
   if (type === "split") {
     return [
-      { id: "lid-first", name: "Lid leaf", box: first, hinge: hingeLine(first, axes, firstEnd) },
-      { id: "lid-second", name: "Lid leaf", box: second, hinge: hingeLine(second, axes, secondEnd) },
+      { id: "lid-first", name: `${word} leaf`, box: first, hinge: hingeLine(first, axes, firstEnd) },
+      { id: "lid-second", name: `${word} leaf`, box: second, hinge: hingeLine(second, axes, secondEnd) },
     ]
   }
 
@@ -123,13 +126,13 @@ export function buildLid(
   return [
     {
       id: "lid-first",
-      name: firstOpens ? "Lid (opening half)" : "Lid (fixed half)",
+      name: firstOpens ? `${word} (opening half)` : `${word} (fixed half)`,
       box: first,
       hinge: firstOpens ? hingeLine(first, axes, firstEnd) : undefined,
     },
     {
       id: "lid-second",
-      name: firstOpens ? "Lid (fixed half)" : "Lid (opening half)",
+      name: firstOpens ? `${word} (fixed half)` : `${word} (opening half)`,
       box: second,
       hinge: firstOpens ? undefined : hingeLine(second, axes, secondEnd),
     },

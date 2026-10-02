@@ -64,6 +64,18 @@ describe("groupParts", () => {
     const half = groupParts(buildBox({ ...base, lidType: "half" }).parts)
     expect(half.filter((x) => x.name.startsWith("Lid"))).toHaveLength(2)
   })
+
+  it("front lid names rows Door, Door leaf and Door (opening/fixed half)", () => {
+    const front = { ...base, lidPosition: "front" as const }
+    const full = groupParts(buildBox(front).parts)
+    expect(full.find((x) => x.name === "Door")?.quantity).toBe(1)
+    expect(full.some((x) => x.name.startsWith("Lid"))).toBe(false)
+    const split = groupParts(buildBox({ ...front, lidType: "split" }).parts)
+    expect(split.find((x) => x.name === "Door leaf")?.quantity).toBe(2)
+    const half = groupParts(buildBox({ ...front, lidType: "half" }).parts)
+    expect(half.map((x) => x.name)).toEqual(expect.arrayContaining(["Door (opening half)", "Door (fixed half)"]))
+    expect(half.some((x) => x.name.startsWith("Lid"))).toBe(false)
+  })
 })
 
 describe("exports", () => {
@@ -96,6 +108,18 @@ describe("groupParts with dividers", () => {
     expect(rows[0].type).toBe("divider")
     expect(rows[0].partIds).toEqual(Array.from({ length: n }, (_, i) => `divider-${i + 1}`))
     expect(groupParts(r.parts).reduce((s, x) => s + x.quantity, 0)).toBe(r.parts.length)
+  })
+
+  it.each([1, 2, 3])("%i front-lid dividers group into one Shelf row of that quantity", (n) => {
+    const r = buildBox({ ...base, lidPosition: "front", dividers: n })
+    expect(r.ok).toBe(true)
+    const all = groupParts(r.parts)
+    expect(all.some((x) => x.name === "Divider")).toBe(false)
+    const rows = all.filter((x) => x.name === "Shelf")
+    expect(rows).toHaveLength(1)
+    expect(rows[0].quantity).toBe(n)
+    expect(rows[0].type).toBe("divider")
+    expect(rows[0].partIds).toEqual(Array.from({ length: n }, (_, i) => `divider-${i + 1}`))
   })
 
   it("bounds are unchanged by dividers", () => {

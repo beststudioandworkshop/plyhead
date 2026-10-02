@@ -189,11 +189,11 @@ describe.each(CASES)("$label", ({ dims, lid, axes }) => {
       near(a.crossLength, size[crossAxis])
     })
 
-    it("full: one part named Lid, hinged at the min end of the cross axis", () => {
+    it("full: one part named Lid (Door on the front), hinged at the min end of the cross axis", () => {
       const parts = lidsOf("full", hingeSide, "second")
       expect(parts).toHaveLength(1)
       const [p] = parts
-      expect(p.name).toBe("Lid")
+      expect(p.name).toBe(lid === "front" ? "Door" : "Lid")
       for (let a = 0; a < 3; a++) {
         near(lo(p)[a], slabMin[a])
         near(hi(p)[a], slabMax[a])
@@ -206,10 +206,10 @@ describe.each(CASES)("$label", ({ dims, lid, axes }) => {
       expect(lidsOf("full", hingeSide, "first")).toEqual(lidsOf("full", hingeSide, "second"))
     })
 
-    it("split: two 'Lid leaf' parts tiling the slab across x, hinged per hinge side", () => {
+    it("split: two 'Lid leaf' ('Door leaf' on the front) parts tiling the slab across x, hinged per hinge side", () => {
       const parts = lidsOf("split", hingeSide, "second")
       expect(parts.map((p) => p.id)).toEqual(["lid-first", "lid-second"])
-      expect(parts.every((p) => p.name === "Lid leaf")).toBe(true)
+      expect(parts.every((p) => p.name === (lid === "front" ? "Door leaf" : "Lid leaf"))).toBe(true)
       const [first, second] = parts
 
       near(lo(first)[0], slabMin[0])
@@ -242,8 +242,9 @@ describe.each(CASES)("$label", ({ dims, lid, axes }) => {
       const [first, second] = parts
       const opening = openLeaf === "first" ? first : second
       const fixed = openLeaf === "first" ? second : first
-      expect(opening.name).toBe("Lid (opening half)")
-      expect(fixed.name).toBe("Lid (fixed half)")
+      const word = lid === "front" ? "Door" : "Lid"
+      expect(opening.name).toBe(`${word} (opening half)`)
+      expect(fixed.name).toBe(`${word} (fixed half)`)
 
       // tiles the slab across x
       near(lo(first)[0], slabMin[0])
@@ -264,8 +265,9 @@ describe.each(CASES)("$label", ({ dims, lid, axes }) => {
     })
 
     it("swapping openLeaf swaps which half is opening", () => {
-      const a = lidsOf("half", hingeSide, "first").find((p) => p.name === "Lid (opening half)")!
-      const b = lidsOf("half", hingeSide, "second").find((p) => p.name === "Lid (opening half)")!
+      const opening = lid === "front" ? "Door (opening half)" : "Lid (opening half)"
+      const a = lidsOf("half", hingeSide, "first").find((p) => p.name === opening)!
+      const b = lidsOf("half", hingeSide, "second").find((p) => p.name === opening)!
       near(a.center[0] + b.center[0], slabMin[0] + slabMax[0])
       expect(Math.abs(a.center[0] - b.center[0])).toBeGreaterThan(1)
       expect(a.id).toBe("lid-first")

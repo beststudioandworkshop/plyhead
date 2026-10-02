@@ -5,6 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   MAX_BITE_MM,
+  dividerWord,
+  lidWord,
   MIN_BITE_MM,
   PILOT_HOLE_MM,
   estimateJointLength,
@@ -40,6 +42,9 @@ export function HowTo({ inputs, exterior, unit }: { inputs: BoxInputs; exterior:
     { id: "better", label: "Better", tier: screw.better },
   ]
   const lap = inputs.bottomStyle === "lap"
+  const lw = lidWord(inputs.lidPosition)
+  const dw = dividerWord(inputs.lidPosition)
+  const top = inputs.lidPosition === "top"
   const legs = inputs.legs.style
 
   return (
@@ -165,9 +170,9 @@ export function HowTo({ inputs, exterior, unit }: { inputs: BoxInputs; exterior:
                   </>
                 )}
                 {inputs.lidPosition === "front" ? <li>Add the top panel between the sides.</li> : null}
-                {inputs.dividers > 0 ? <li>Fit the dividers and screw through the outside walls into their edges.</li> : null}
+                {inputs.dividers > 0 ? <li>Fit the {dw === "shelf" ? "shelves" : "dividers"} and screw through the outside walls into their edges.</li> : null}
                 <li>
-                  Fit the lid last: hinge it on the {inputs.hingeSide} edge, on the inside face, and check it opens
+                  Fit the {lw} last: hinge it on the {inputs.hingeSide} edge, on the inside face, and check it opens
                   freely before you tighten everything.
                 </li>
                 {legs !== "none" ? <li>Finally, attach the legs (see below).</li> : null}
@@ -239,10 +244,10 @@ export function HowTo({ inputs, exterior, unit }: { inputs: BoxInputs; exterior:
               </p>
               <ul className="list-disc pl-5">
                 <li>
-                  Cut the foam to the lid size ({formatLength(inputs.dims.w, unit)} wide at most) so it doesn&apos;t
+                  Cut the foam to the size of the top ({formatLength(inputs.dims.w, unit)} wide at most) so it doesn&apos;t
                   overhang.
                 </li>
-                <li>Use the lapped bottom, glue every joint, and add a divider if the lid is long or split.</li>
+                <li>Use the lapped bottom, glue every joint{top ? ", and add a divider if the lid is long or split" : ""}.</li>
                 <li>A non-slip pad or velcro strip keeps the cushion from sliding off.</li>
               </ul>
             </AccordionContent>

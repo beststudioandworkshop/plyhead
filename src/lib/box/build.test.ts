@@ -116,10 +116,10 @@ describe("part sets", () => {
     expect(r.parts.filter((p) => p.type === "side")).toHaveLength(2)
   })
 
-  it("front lid: side x2, back, top, bottom, lid; no front part", () => {
+  it("front lid: side x2, back, top, bottom, door; no front part", () => {
     const r = buildBox(inputs({ lidPosition: "front" }))
     expect(r.ok).toBe(true)
-    expect(names(r)).toEqual(["Back", "Bottom", "Lid", "Side", "Side", "Top"])
+    expect(names(r)).toEqual(["Back", "Bottom", "Door", "Side", "Side", "Top"])
     expect(r.parts.some((p) => p.type === "front")).toBe(false)
   })
 

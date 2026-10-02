@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { Choice } from "./choice"
 import type { Surface } from "./box-scene"
-import { HINGE_COLOR, PART_COLORS, PART_TYPE_LABEL, hatchSwatch, type BoxResult, type LidPosition, type PartType } from "@/lib/box"
+import { HINGE_COLOR, PART_COLORS, hatchSwatch, partTypeLabel, type BoxResult, type LidPosition, type PartType } from "@/lib/box"
 
 const BoxScene = dynamic(() => import("./box-scene"), {
   ssr: false,
@@ -85,7 +85,7 @@ export function PreviewCard({ result, lidPosition }: { result: BoxResult; lidPos
                 className="size-3 rounded-sm border border-border"
                 style={{ backgroundImage: hatchSwatch(PART_COLORS[t]) }}
               />
-              {PART_TYPE_LABEL[t]}
+              {partTypeLabel(t, lidPosition)}
             </li>
           ))}
           {hasHinge ? (

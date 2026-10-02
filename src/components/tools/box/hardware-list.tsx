@@ -6,7 +6,7 @@ import type { HardwareItem, ToolItem } from "@/lib/box"
 
 const CATEGORY_LABEL: Record<HardwareItem["category"], string> = {
   hinges: "Hinges",
-  lid: "Lid",
+  lid: "Lid or door",
   legs: "Legs",
   fasteners: "Fasteners",
   supplies: "Supplies",

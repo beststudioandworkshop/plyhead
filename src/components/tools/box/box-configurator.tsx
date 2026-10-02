@@ -90,7 +90,7 @@ export function BoxConfigurator({ initial }: { initial?: ShareState }) {
     setInputs((prev) => {
       const next = { ...prev, ...p }
       // A split lid needs a divider under its seam, so nudge an even count up to the next odd one.
-      if (next.lidType !== "full" && next.dividers > 0 && next.dividers % 2 === 0) {
+      if (next.lidPosition === "top" && next.lidType !== "full" && next.dividers > 0 && next.dividers % 2 === 0) {
         next.dividers = Math.min(next.dividers + 1, MAX_DIVIDERS)
         if (next.dividers % 2 === 0) next.dividers -= 1
       }
