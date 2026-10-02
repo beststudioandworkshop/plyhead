@@ -97,8 +97,8 @@ export function BoxConfigurator() {
   const hasLegs = inputs.legs.face !== null
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_26rem] lg:grid-rows-[auto_1fr] lg:items-start">
-      <Card className="lg:col-start-1">
+    <div className="grid gap-6 lg:grid-cols-[26rem_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start">
+      <Card className="lg:col-start-2">
         <CardHeader>
           <CardTitle>Your box</CardTitle>
           <CardDescription>The 3D preview comes next. For now, these are the sizes.</CardDescription>
@@ -126,7 +126,7 @@ export function BoxConfigurator() {
         </CardContent>
       </Card>
 
-      <Card className="entry-zone border-t-4 border-t-entry lg:col-start-2 lg:row-span-2 lg:row-start-1">
+      <Card className="entry-zone lg:col-start-1 lg:row-span-2 lg:row-start-1">
         <CardHeader>
           <CardTitle>Settings</CardTitle>
         </CardHeader>
@@ -144,7 +144,7 @@ export function BoxConfigurator() {
       </Card>
 
       {result.ok ? (
-        <div className="lg:col-start-1">
+        <div className="lg:col-start-2">
           <CutList rows={rows} unit={unit} />
         </div>
       ) : null}

@@ -138,12 +138,36 @@
     @apply font-sans;
   }
 }
-/* Input zone: inputs, selects and chosen options carry the entry accent.
-   Deliberately outside any @layer so it wins over the kit's utility classes. */
+/* Input zone: inputs, selects and chosen options carry the entry accent as a
+   diagonal hatch. Deliberately outside any @layer so it wins over the kit's
+   utility classes. */
+.entry-zone {
+  --entry-hatch: repeating-linear-gradient(
+    -45deg,
+    var(--entry) 0 6px,
+    color-mix(in oklab, var(--entry) 70%, white) 6px 12px
+  );
+  --entry-hatch-soft: repeating-linear-gradient(
+    -45deg,
+    var(--entry-soft) 0 6px,
+    color-mix(in oklab, var(--entry-soft) 88%, var(--entry)) 6px 12px
+  );
+  position: relative;
+  overflow: hidden;
+}
+.entry-zone::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 0.75rem;
+  background-image: var(--entry-hatch);
+}
 .entry-zone [data-slot="input"],
 .entry-zone [data-slot="select-trigger"] {
   border-color: var(--entry);
   background-color: var(--entry-soft);
+  background-image: var(--entry-hatch-soft);
 }
 .entry-zone [data-slot="input"]:focus-visible,
 .entry-zone [data-slot="select-trigger"]:focus-visible {
@@ -153,5 +177,7 @@
 .entry-zone [data-slot="toggle-group-item"][aria-pressed="true"],
 .entry-zone [data-slot="toggle-group-item"][data-pressed] {
   background-color: var(--entry);
+  background-image: var(--entry-hatch);
   color: var(--entry-foreground);
+  font-weight: 600;
 }
