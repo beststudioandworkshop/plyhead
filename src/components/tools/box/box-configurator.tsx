@@ -185,7 +185,7 @@ export function BoxConfigurator() {
         <div className="flex flex-col gap-6 lg:col-start-2">
           <CutList rows={rows} unit={unit} rounded={rounding === "easier"} />
           <SheetLayout nest={nest} parts={cutParts} unit={unit} />
-          <HowTo inputs={inputs} unit={unit} />
+          <HowTo inputs={inputs} exterior={result.exterior} unit={unit} />
         </div>
       ) : null}
     </div>

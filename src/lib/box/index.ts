@@ -26,5 +26,13 @@ export { lidAxes, type LidAxes } from "./lid"
 export { nestParts, nestableParts, type Placement, type NestedSheet, type NestResult } from "./nesting"
 export { buildDxf, layerName, SHEET_LAYER, type DxfOptions } from "./dxf"
 export { dividerAxis, dividerGap, suggestDivider } from "./dividers"
-export { screwAdvice, SCREW_BITE_MM, type ScrewAdvice } from "./screws"
+export {
+  screwAdvice,
+  estimateJointLength,
+  screwCount,
+  SCREW_TIERS,
+  type ScrewAdvice,
+  type ScrewTierAdvice,
+  type ScrewTierId,
+} from "./screws"
 export { roundParts, roundingStep, type RoundingMode } from "./rounding"

@@ -2,8 +2,20 @@
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableRow } from "@/components/ui/table"
-import { MM_PER_INCH, formatLength, formatThickness, screwAdvice, type BoxInputs, type Unit } from "@/lib/box"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+  MM_PER_INCH,
+  estimateJointLength,
+  formatLength,
+  formatThickness,
+  screwAdvice,
+  screwCount,
+  type BoxInputs,
+  type Dims,
+  type ScrewAdvice,
+  type ScrewTierAdvice,
+  type Unit,
+} from "@/lib/box"
 
 const fraction = (inches: number) => {
   const whole = Math.floor(inches)
@@ -12,11 +24,19 @@ const fraction = (inches: number) => {
   return [whole || "", frac].filter(Boolean).join(" ") + '"'
 }
 
-export function HowTo({ inputs, unit }: { inputs: BoxInputs; unit: Unit }) {
+export function HowTo({ inputs, exterior, unit }: { inputs: BoxInputs; exterior: Dims; unit: Unit }) {
   const t = inputs.thickness
   const screw = screwAdvice(t)
   const imperial = unit === "in"
-  const screwText = imperial ? `${screw.gauge} × ${fraction(screw.lengthIn)}` : `${screw.gauge} × ${screw.lengthMetricMm} mm`
+  const screwOf = (tier: ScrewTierAdvice) =>
+    imperial ? `${screw.gauge} × ${fraction(tier.lengthIn)}` : `${screw.gauge} × ${tier.lengthMetricMm} mm`
+  // The legs and general joints use the "good" tier as the baseline.
+  const screwText = screwOf(screw.good)
+  const jointLength = estimateJointLength(exterior, inputs.lidPosition, inputs.dividers)
+  const tiers: { id: "good" | "better"; label: string; tier: ScrewAdvice["good"] }[] = [
+    { id: "good", label: "Good", tier: screw.good },
+    { id: "better", label: "Better", tier: screw.better },
+  ]
   const lap = inputs.bottomStyle === "lap"
   const legs = inputs.legs.style
 
@@ -34,10 +54,50 @@ export function HowTo({ inputs, unit }: { inputs: BoxInputs; unit: Unit }) {
             <AccordionTrigger>Screws</AccordionTrigger>
             <AccordionContent className="flex flex-col gap-3">
               <p>
-                For your {formatThickness(t, unit)} plywood, use <strong>{screwText}</strong> wood or construction
-                screws (self-tapping, flat or trim head). A screw should go through the first panel and bite at
-                least {imperial ? '1"' : "25 mm"} into the edge of the second, so the length is the panel thickness
-                plus that bite, rounded up to a stock size.
+                Screw length is a <strong>minimum</strong>. Quantity matters just as much: more screws, evenly
+                spaced, hold a joint better than a few long ones. For {formatThickness(t, unit)} plywood, use
+                {" "}{screw.gauge} wood or construction screws (self-tapping, flat or trim head), and aim for one of
+                these:
+              </p>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead />
+                    {tiers.map((x) => (
+                      <TableHead key={x.id}>{x.label}</TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    <TableHead>Bite into the second panel</TableHead>
+                    {tiers.map((x) => (
+                      <TableCell key={x.id}>{formatLength(x.tier.biteMm, unit)}</TableCell>
+                    ))}
+                  </TableRow>
+                  <TableRow>
+                    <TableHead>Screw (at least)</TableHead>
+                    {tiers.map((x) => (
+                      <TableCell key={x.id}>{screwOf(x.tier)}</TableCell>
+                    ))}
+                  </TableRow>
+                  <TableRow>
+                    <TableHead>A screw about every</TableHead>
+                    {tiers.map((x) => (
+                      <TableCell key={x.id}>{formatLength(x.tier.spacingMm, unit)}</TableCell>
+                    ))}
+                  </TableRow>
+                  <TableRow>
+                    <TableHead>For this box, about</TableHead>
+                    {tiers.map((x) => (
+                      <TableCell key={x.id}>{screwCount(jointLength, x.tier.spacingMm)} screws</TableCell>
+                    ))}
+                  </TableRow>
+                </TableBody>
+              </Table>
+              <p>
+                Each screw goes through the first panel and into the edge of the second. The count is a rough
+                estimate for the main joints and doesn&apos;t include the lid hinges or the legs.
               </p>
               <Table>
                 <TableBody>
@@ -49,12 +109,6 @@ export function HowTo({ inputs, unit }: { inputs: BoxInputs; unit: Unit }) {
                     <TableHead>Clearance hole in the first panel</TableHead>
                     <TableCell>
                       {imperial ? fraction(screw.clearanceMm / MM_PER_INCH) : `${screw.clearanceMm} mm`}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableHead>Space between screws</TableHead>
-                    <TableCell>
-                      {formatLength(screw.spacingMm[0], unit)} to {formatLength(screw.spacingMm[1], unit)}
                     </TableCell>
                   </TableRow>
                   <TableRow>
