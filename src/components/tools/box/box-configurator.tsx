@@ -126,7 +126,7 @@ export function BoxConfigurator() {
         </CardContent>
       </Card>
 
-      <Card className="lg:col-start-2 lg:row-span-2 lg:row-start-1">
+      <Card className="entry-zone border-t-4 border-t-entry lg:col-start-2 lg:row-span-2 lg:row-start-1">
         <CardHeader>
           <CardTitle>Settings</CardTitle>
         </CardHeader>
