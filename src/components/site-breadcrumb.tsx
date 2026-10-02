@@ -1,0 +1,79 @@
+"use client"
+
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+
+import { components, foundations } from "@/lib/registry"
+import { SYSTEM_BASE, sys } from "@/lib/system-config"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
+
+type Crumb = { title: string; href?: string }
+
+function crumbsFor(pathname: string): Crumb[] {
+  // Parse relative to the mount point so the trail works at / and at /system.
+  const local = SYSTEM_BASE && pathname.startsWith(SYSTEM_BASE)
+    ? pathname.slice(SYSTEM_BASE.length) || "/"
+    : pathname
+  const [, section, slug] = local.split("/")
+
+  if (section === "components") {
+    const crumbs: Crumb[] = [{ title: "Components", href: slug ? sys("/components") : undefined }]
+    if (slug) {
+      const entry = components.find((c) => c.slug === slug)
+      crumbs.push({ title: entry?.title ?? slug })
+    }
+    return crumbs
+  }
+
+  if (section === "foundations") {
+    const crumbs: Crumb[] = [{ title: "Foundations", href: slug ? sys("/foundations") : undefined }]
+    if (slug) {
+      const entry = foundations.find((f) => f.slug === slug)
+      crumbs.push({ title: entry?.title ?? slug })
+    }
+    return crumbs
+  }
+
+  return [{ title: "Overview" }]
+}
+
+export function SiteBreadcrumb() {
+  const pathname = usePathname()
+  const crumbs = crumbsFor(pathname)
+  const atRoot = crumbs.length === 1 && !crumbs[0].href
+
+  return (
+    <Breadcrumb>
+      <BreadcrumbList>
+        <BreadcrumbItem>
+          {atRoot ? (
+            <BreadcrumbPage>Monad</BreadcrumbPage>
+          ) : (
+            <BreadcrumbLink render={<Link href={sys("/")} />}>Monad</BreadcrumbLink>
+          )}
+        </BreadcrumbItem>
+        {crumbs.map((crumb) => (
+          <span key={crumb.title} className="contents">
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              {crumb.href ? (
+                <BreadcrumbLink render={<Link href={crumb.href} />}>
+                  {crumb.title}
+                </BreadcrumbLink>
+              ) : (
+                <BreadcrumbPage>{crumb.title}</BreadcrumbPage>
+              )}
+            </BreadcrumbItem>
+          </span>
+        ))}
+      </BreadcrumbList>
+    </Breadcrumb>
+  )
+}
