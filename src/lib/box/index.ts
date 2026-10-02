@@ -59,3 +59,4 @@ export {
   type EstimateLine,
   type Estimate,
 } from "./estimate"
+export type { Cut, FirstCut, NestOptions, NestStrategy } from "./nesting"

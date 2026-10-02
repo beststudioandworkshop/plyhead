@@ -33,6 +33,7 @@ import {
   type BoxInputs,
   type DimensionMode,
   type Dims,
+  type FirstCut,
   type RoundingMode,
   type ShareState,
   type SheetPreset,
@@ -81,6 +82,7 @@ export function BoxConfigurator({ initial }: { initial?: ShareState }) {
   const [sheetId, setSheetId] = React.useState<SheetPreset["id"]>(initial?.sheetId ?? "4x8")
   const [kerfMm, setKerfMm] = React.useState(initial?.kerfMm ?? DEFAULT_KERF_MM)
   const [rounding, setRounding] = React.useState<RoundingMode>(initial?.rounding ?? "exact")
+  const [firstCut, setFirstCut] = React.useState<FirstCut>("auto")
 
   const patch = (p: Partial<BoxInputs>) =>
     setInputs((prev) => {
@@ -124,7 +126,7 @@ export function BoxConfigurator({ initial }: { initial?: ShareState }) {
   )
   const rows = React.useMemo(() => groupParts(cutParts), [cutParts])
   const sheet = SHEET_PRESETS.find((p) => p.id === sheetId) ?? SHEET_PRESETS[0]
-  const nest = React.useMemo(() => nestParts(cutParts, sheet, kerfMm), [cutParts, sheet, kerfMm])
+  const nest = React.useMemo(() => nestParts(cutParts, sheet, kerfMm, { firstCut }), [cutParts, sheet, kerfMm, firstCut])
   const hardware = React.useMemo(() => hardwareList(inputs, result, unit), [inputs, result, unit])
   const sheetPartCount = nest.sheets.reduce((n, sh) => n + sh.placements.length, 0)
   const jointLengthMm = estimateJointLength(result.exterior, inputs.lidPosition, inputs.dividers)
@@ -213,6 +215,8 @@ export function BoxConfigurator({ initial }: { initial?: ShareState }) {
             onThicknessPreset={changePreset}
             exterior={result.exterior}
             dividerTip={result.ok ? dividerTip : null}
+            firstCut={firstCut}
+            onFirstCut={setFirstCut}
             rounding={rounding}
             onRounding={setRounding}
             sheetId={sheetId}

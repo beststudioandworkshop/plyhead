@@ -17,6 +17,7 @@ import {
   type BoxInputs,
   type DimensionMode,
   type Dims,
+  type FirstCut,
   type HingeSide,
   type LeafSide,
   type LegStyle,
@@ -45,6 +46,8 @@ interface ControlsProps {
   /** Exterior size in mm; used to describe the lid's edges. */
   exterior: Dims
   dividerTip: "seam" | "span" | null
+  firstCut: FirstCut
+  onFirstCut: (mode: FirstCut) => void
   rounding: RoundingMode
   onRounding: (mode: RoundingMode) => void
   sheetId: SheetPreset["id"]
@@ -58,6 +61,8 @@ export function Controls({
   state,
   exterior,
   dividerTip,
+  firstCut,
+  onFirstCut,
   rounding,
   onRounding,
   sheetId,
@@ -427,6 +432,27 @@ export function Controls({
         onChange={onKerf}
         description="Material the blade removes. Used to space parts on the sheet."
       />
+
+      <Field>
+        <FieldTitle>First cut</FieldTitle>
+        <Choice<FirstCut>
+          label="First cut"
+          value={firstCut}
+          onChange={onFirstCut}
+          options={[
+            { value: "auto", label: "Best" },
+            { value: "rip", label: "Rip first" },
+            { value: "cross", label: "Cross-cut first" },
+          ]}
+        />
+        <FieldDescription>
+          {firstCut === "auto"
+            ? "Tries every order and keeps the one with the fewest sheets and cuts."
+            : firstCut === "rip"
+              ? "Breaks the sheet into long strips along its length first, then cuts those to size."
+              : "Cuts the sheet across its width first, then cuts those pieces to size."}
+        </FieldDescription>
+      </Field>
     </FieldGroup>
   )
 }
