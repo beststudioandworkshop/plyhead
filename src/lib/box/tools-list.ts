@@ -83,12 +83,14 @@ export function toolsList(inputs: BoxInputs, result: BoxResult, unit: Unit): Too
     why: "Optional. Softens the edges, which also helps a finish wear well and is kinder to anyone sitting on it.",
     essential: false,
   })
-  add({
-    id: "chisel",
-    name: "Sharp chisel",
-    why: "Optional. For lightly mortising the hinges so the lid closes flush.",
-    essential: false,
-  })
+  if (inputs.lidType !== "none") {
+    add({
+      id: "chisel",
+      name: "Sharp chisel",
+      why: "Optional. For lightly mortising the hinges so the lid or door closes flush.",
+      essential: false,
+    })
+  }
   if (inputs.legs.style === "dowel") {
     add({
       id: "dowel-ends",

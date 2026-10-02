@@ -101,6 +101,9 @@ export function buildLid(
     slab.max[1] - slab.min[1],
     slab.max[2] - slab.min[2],
   ]
+  // An open box has no lid or door.
+  if (type === "none") return []
+
   const axes = lidAxes(size, lid, hingeSide)
   // "Lid" on top, "Door" on the front.
   const word = capitalize(lidWord(lid))

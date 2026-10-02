@@ -30,6 +30,7 @@ export function PreviewCard({ result, lidPosition }: { result: BoxResult; lidPos
 
   const present = new Set(result.parts.map((p) => p.type))
   const hasHinge = result.parts.some((p) => p.hinge)
+  const hasLid = result.parts.some((p) => p.type === "lid")
 
   return (
     <Card className="card-tone tone-sky lg:col-start-2">
@@ -46,7 +47,7 @@ export function PreviewCard({ result, lidPosition }: { result: BoxResult; lidPos
               exploded={exploded}
               resetKey={resetKey}
               surface={surface}
-              opened={opened}
+              opened={opened && hasLid}
               dark={resolvedTheme === "dark"}
             />
           ) : (
@@ -62,10 +63,12 @@ export function PreviewCard({ result, lidPosition }: { result: BoxResult; lidPos
               <Switch checked={exploded} onCheckedChange={setExploded} />
               Exploded view
             </Label>
-            <Label className="gap-2">
-              <Switch checked={opened} onCheckedChange={setOpened} />
-              {lidPosition === "front" ? "Open the door" : "Open the lid"}
-            </Label>
+            {hasLid ? (
+              <Label className="gap-2">
+                <Switch checked={opened} onCheckedChange={setOpened} />
+                {lidPosition === "front" ? "Open the door" : "Open the lid"}
+              </Label>
+            ) : null}
           </div>
           <Choice<Surface>
             label="Surface"

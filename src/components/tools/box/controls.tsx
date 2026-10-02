@@ -85,7 +85,7 @@ export function Controls({
   const lw = lidWord(inputs.lidPosition)
   const Lw = capitalize(lw)
   // Only a split or half lid on TOP needs a divider right under its seam.
-  const seamRule = !front && inputs.lidType !== "full"
+  const seamRule = !front && (inputs.lidType === "split" || inputs.lidType === "half")
   // Lid size in the x/y/z frame; only the two in-plane axes matter.
   const lid = lidAxes([exterior.w, exterior.h, exterior.d], inputs.lidPosition, inputs.hingeSide)
   const lidEdges = {
@@ -213,8 +213,8 @@ export function Controls({
           value={inputs.lidPosition}
           onChange={(lidPosition) => onInputs({ lidPosition })}
           options={[
-            { value: "top", label: "Top lid" },
-            { value: "front", label: "Front door" },
+            { value: "top", label: "Top" },
+            { value: "front", label: "Front" },
           ]}
         />
       </Field>
@@ -229,6 +229,7 @@ export function Controls({
             { value: "full", label: "Full" },
             { value: "split", label: "Split" },
             { value: "half", label: "Half" },
+            { value: "none", label: "None" },
           ]}
         />
         <FieldDescription>
@@ -236,10 +237,15 @@ export function Controls({
             ? "One panel covers the whole opening."
             : inputs.lidType === "split"
               ? `Two equal ${front ? "doors" : "leaves"} meet in the middle, and both open.`
-              : "One half is fixed, the other half opens."}
+              : inputs.lidType === "half"
+                ? "One half is fixed, the other half opens."
+                : front
+                  ? "Open front, no door. Handy for a cubby or bookcase."
+                  : "Open top, no lid. Handy for a crate, bin or planter."}
         </FieldDescription>
       </Field>
 
+      {inputs.lidType !== "none" ? (
       <Field>
         <FieldTitle>Hinge side</FieldTitle>
         <Choice<HingeSide>
@@ -255,6 +261,7 @@ export function Controls({
           The hinge runs along the {formatLength(lidEdges[inputs.hingeSide], unit)} edge of the {lw}.
         </FieldDescription>
       </Field>
+      ) : null}
 
       {inputs.lidType === "half" ? (
         <Field>

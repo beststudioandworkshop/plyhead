@@ -42,7 +42,7 @@ const overlaps = (a: Part, b: Part) => {
   return [0, 1, 2].every((i) => Math.min(ah[i], bh[i]) - Math.max(al[i], bl[i]) > 1e-4)
 }
 const sizeOf = (b: Box): Vec3 => [0, 1, 2].map((a) => b.max[a] - b.min[a]) as Vec3
-const interiorOf = (dims: typeof EXT): Box => JOINERY.butt.interiorBox(dims, T)
+const interiorOf = (dims: typeof EXT): Box => JOINERY.butt.interiorBox(dims, T, "top", true)
 const near = (a: number, b: number, d = 2) => expect(a).toBeCloseTo(b, d)
 
 /** Independent expectation of the divider axis. */
@@ -429,9 +429,9 @@ describe("suggestDivider", () => {
 
   it("full lid: 'span' when the longer lid-plane span exceeds ratio * t", () => {
     const limit = SPAN_SUGGEST_RATIO * T
-    expect(s(0, JOINERY.butt.interiorBox({ w: limit + 1 + 2 * T, d: 100, h: 100 }, T), "top", "full")).toBe("span")
-    expect(s(0, JOINERY.butt.interiorBox({ w: limit + 2 * T, d: 100, h: 100 }, T), "top", "full")).toBeNull()
-    expect(s(0, JOINERY.butt.interiorBox({ w: limit - 1 + 2 * T, d: 100, h: 100 }, T), "top", "full")).toBeNull()
+    expect(s(0, JOINERY.butt.interiorBox({ w: limit + 1 + 2 * T, d: 100, h: 100 }, T, "top", true), "top", "full")).toBe("span")
+    expect(s(0, JOINERY.butt.interiorBox({ w: limit + 2 * T, d: 100, h: 100 }, T, "top", true), "top", "full")).toBeNull()
+    expect(s(0, JOINERY.butt.interiorBox({ w: limit - 1 + 2 * T, d: 100, h: 100 }, T, "top", true), "top", "full")).toBeNull()
   })
 
   it("full lid considers only the lid-plane axes", () => {

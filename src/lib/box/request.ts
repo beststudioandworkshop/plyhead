@@ -54,7 +54,9 @@ export function requestBody(args: RequestArgs): string {
     `Outside (W × D × H): ${dims(args.exterior, unit)}`,
     `Inside (W × D × H): ${dims(args.interior, unit)}`,
     `Plywood: ${formatLength(i.thickness, unit)} thick`,
-    `${capitalize(lidWord(i.lidPosition))}: ${i.lidPosition}, ${i.lidType}, hinged on the ${i.hingeSide} side`,
+    i.lidType === "none"
+      ? `Opening: open ${i.lidPosition} (no ${lidWord(i.lidPosition)})`
+      : `${capitalize(lidWord(i.lidPosition))}: ${i.lidPosition}, ${i.lidType}, hinged on the ${i.hingeSide} side`,
     `Bottom: ${i.bottomStyle === "lap" ? "under the walls" : "between the walls"}`,
     `${i.lidPosition === "front" ? "Shelves" : "Dividers"}: ${i.dividers}`,
     `Legs: ${LEG_TEXT[i.legs.style]}`,

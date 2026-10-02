@@ -9,15 +9,16 @@ import type { Axis, Box, BoxInputs, BoxResult, Dims, Issue, Part, Vec3 } from ".
 export function resolveDimensions(inputs: BoxInputs): { exterior: Dims; interior: Dims } {
   const joinery = JOINERY[inputs.joinery]
   const t = inputs.thickness
+  const hasLid = inputs.lidType !== "none"
   if (inputs.dimensionMode === "exterior") {
-    return { exterior: inputs.dims, interior: joinery.interiorFromExterior(inputs.dims, t) }
+    return { exterior: inputs.dims, interior: joinery.interiorFromExterior(inputs.dims, t, inputs.lidPosition, hasLid) }
   }
   const wanted: Dims = {
     w: inputs.dims.w + inputs.clearance,
     d: inputs.dims.d + inputs.clearance,
     h: inputs.dims.h + inputs.clearance,
   }
-  return { exterior: joinery.exteriorFromInterior(wanted, t), interior: wanted }
+  return { exterior: joinery.exteriorFromInterior(wanted, t, inputs.lidPosition, hasLid), interior: wanted }
 }
 
 function validate(inputs: BoxInputs, exterior: Dims, interior: Dims): Issue[] {
@@ -47,7 +48,7 @@ function validate(inputs: BoxInputs, exterior: Dims, interior: Dims): Issue[] {
     })
     return issues
   }
-  const interiorBox = JOINERY[inputs.joinery].interiorBox(exterior, inputs.thickness)
+  const interiorBox = JOINERY[inputs.joinery].interiorBox(exterior, inputs.thickness, inputs.lidPosition, inputs.lidType !== "none")
   issues.push(
     ...validateDividers(
       inputs.dividers,
@@ -75,7 +76,7 @@ export function buildBox(inputs: BoxInputs): BoxResult {
   }
 
   const t = inputs.thickness
-  const layout = JOINERY[inputs.joinery].layout(exterior, t, inputs.lidPosition, inputs.bottomStyle)
+  const layout = JOINERY[inputs.joinery].layout(exterior, t, inputs.lidPosition, inputs.bottomStyle, inputs.lidType !== "none")
   const parts: Part[] = []
 
   for (const panel of layout.carcass) {
@@ -85,7 +86,10 @@ export function buildBox(inputs: BoxInputs): BoxResult {
   }
 
   const lidThicknessAxis: Axis = inputs.lidPosition === "top" ? 1 : 2
-  for (const lid of buildLid(layout.lidSlab, inputs.lidPosition, inputs.lidType, inputs.openLeaf, inputs.hingeSide)) {
+  const lidPanels = layout.lidSlab
+    ? buildLid(layout.lidSlab, inputs.lidPosition, inputs.lidType, inputs.openLeaf, inputs.hingeSide)
+    : []
+  for (const lid of lidPanels) {
     parts.push(
       partFromBox(
         { id: lid.id, name: lid.name, type: "lid", hinge: lid.hinge },
@@ -98,7 +102,7 @@ export function buildBox(inputs: BoxInputs): BoxResult {
   parts.push(
     ...buildDividers(
       inputs.dividers,
-      JOINERY[inputs.joinery].interiorBox(exterior, t),
+      JOINERY[inputs.joinery].interiorBox(exterior, t, inputs.lidPosition, inputs.lidType !== "none"),
       inputs.lidPosition,
       inputs.lidType,
       t,

@@ -141,7 +141,7 @@ export function decodeShare(text: string | null | undefined): ShareState | null 
     const clearance = num(own(i, "c"), 0, 200)
     const thickness = num(own(i, "th"), 1, 100)
     const lidPosition = oneOf<LidPosition>(own(i, "lp"), ["top", "front"])
-    const lidType = oneOf<LidType>(own(i, "lt"), ["full", "split", "half"])
+    const lidType = oneOf<LidType>(own(i, "lt"), ["full", "split", "half", "none"])
     const openLeaf = oneOf<LeafSide>(own(i, "ol"), ["first", "second"])
     const hingeSide = oneOf<HingeSide>(own(i, "hs"), ["long", "short"])
     const bottomStyle = oneOf<BottomStyle>(own(i, "bs"), ["inset", "lap"])

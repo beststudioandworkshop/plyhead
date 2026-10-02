@@ -25,7 +25,8 @@ export interface Dims {
 }
 
 export type LidPosition = "top" | "front"
-export type LidType = "full" | "split" | "half"
+/** "none" = an open top or open front: no lid or door at all. */
+export type LidType = "full" | "split" | "half" | "none"
 export type DimensionMode = "exterior" | "interior"
 export type Unit = "in" | "mm"
 export type JoineryId = "butt"

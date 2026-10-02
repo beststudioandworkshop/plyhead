@@ -49,7 +49,7 @@ describe("encode / decode round trip", () => {
     let n = 0
     for (const dimensionMode of ["exterior", "interior"] as const)
       for (const lidPosition of ["top", "front"] as const)
-        for (const lidType of ["full", "split", "half"] as const)
+        for (const lidType of ["full", "split", "half", "none"] as const)
           for (const openLeaf of ["first", "second"] as const)
             for (const hingeSide of ["long", "short"] as const)
               for (const bottomStyle of ["inset", "lap"] as const)
@@ -65,7 +65,7 @@ describe("encode / decode round trip", () => {
                       expect(decodeShare(encodeShare(s))).toEqual(s)
                       n++
                     }
-    expect(n).toBe(2 * 2 * 3 * 2 * 2 * 2 * 2 * 2 * 2)
+    expect(n).toBe(2 * 2 * 4 * 2 * 2 * 2 * 2 * 2 * 2)
   })
 
   it("round-trips leg styles, dividers and thickness presets", () => {
@@ -147,7 +147,7 @@ describe("decodeShare rejects bad input without throwing", () => {
     ["bad sheet", tampered((w) => (w.s = "6x6"))],
     ["bad thickness preset", tampered((w) => (w.t = "nope"))],
     ["bad dimension mode", tampered((w) => (w.i.m = "outer"))],
-    ["bad lid type", tampered((w) => (w.i.lt = "none"))],
+    ["bad lid type", tampered((w) => (w.i.lt = "nope"))],
     ["bad joinery", tampered((w) => (w.i.j = "dado"))],
     ["bad leg style", tampered((w) => (w.i.l.s = "wheels"))],
     ["inherited enum name", tampered((w) => (w.u = "toString"))],

@@ -9,7 +9,7 @@ import type { Axis, Box, Issue, LidPosition, LidType, Part, Vec3 } from "./types
  * Dividers always lie in a plane that contains the opening direction, so they never block access.
  *  - Top lid, split / half: one divider always sits under the seam so both leaves rest on it
  *    (so only odd counts are allowed: 1 or 3, evenly spaced, the middle one on the seam).
- *  - Top lid, full: dividers run across the longer span of the opening.
+ *  - Top lid, full (or an open top): dividers run across the longer span of the opening.
  *  - Front door: they are horizontal SHELVES, evenly spaced up the inside, any count.
  * With more than one, they're spaced to leave equal clear gaps.
  */
@@ -25,7 +25,7 @@ export function dividerAxis(
   // A box with a door gets horizontal shelves.
   if (lid === "front") return 1
   // Split and half lids divide across the width, so the divider goes under that seam.
-  if (lidType !== "full") return SPLIT_AXIS
+  if (lidType === "split" || lidType === "half") return SPLIT_AXIS
   const s = size(interior)
   const [a, b]: [Axis, Axis] = lid === "top" ? [0, 2] : [0, 1]
   return s[a] >= s[b] ? a : b
@@ -43,7 +43,7 @@ export function validateDividers(
 ): Issue[] {
   if (count <= 0) return []
   // Evenly spaced dividers only land on the seam when there's an odd number of them.
-  if (lid === "top" && lidType !== "full" && count % 2 === 0) {
+  if (lid === "top" && (lidType === "split" || lidType === "half") && count % 2 === 0) {
     return [
       {
         code: "dividers-need-seam",
@@ -99,7 +99,7 @@ export function suggestDivider(
   spanRatio: number,
 ): "seam" | "span" | null {
   if (count > 0 || lid === "front") return null
-  if (lidType !== "full") return "seam"
+  if (lidType === "split" || lidType === "half") return "seam"
   const s = size(interior)
   const [a, b]: [Axis, Axis] = lid === "top" ? [0, 2] : [0, 1]
   return Math.max(s[a], s[b]) > spanRatio * t ? "span" : null

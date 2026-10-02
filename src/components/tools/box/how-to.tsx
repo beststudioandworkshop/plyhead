@@ -45,6 +45,7 @@ export function HowTo({ inputs, exterior, unit }: { inputs: BoxInputs; exterior:
   const lw = lidWord(inputs.lidPosition)
   const dw = dividerWord(inputs.lidPosition)
   const top = inputs.lidPosition === "top"
+  const hasLid = inputs.lidType !== "none"
   const legs = inputs.legs.style
 
   return (
@@ -171,10 +172,12 @@ export function HowTo({ inputs, exterior, unit }: { inputs: BoxInputs; exterior:
                 )}
                 {inputs.lidPosition === "front" ? <li>Add the top panel between the sides.</li> : null}
                 {inputs.dividers > 0 ? <li>Fit the {dw === "shelf" ? "shelves" : "dividers"} and screw through the outside walls into their edges.</li> : null}
+                {hasLid ? (
                 <li>
                   Fit the {lw} last: hinge it on the {inputs.hingeSide} edge, on the inside face, and check it opens
                   freely before you tighten everything.
                 </li>
+                ) : null}
                 {legs !== "none" ? <li>Finally, attach the legs (see below).</li> : null}
               </ol>
             </AccordionContent>
@@ -235,6 +238,7 @@ export function HowTo({ inputs, exterior, unit }: { inputs: BoxInputs; exterior:
             </AccordionItem>
           ) : null}
 
+          {hasLid ? (
           <AccordionItem value="seat">
             <AccordionTrigger>Sitting on it? Add a cushion</AccordionTrigger>
             <AccordionContent className="flex flex-col gap-3">
@@ -252,6 +256,7 @@ export function HowTo({ inputs, exterior, unit }: { inputs: BoxInputs; exterior:
               </ul>
             </AccordionContent>
           </AccordionItem>
+          ) : null}
         </Accordion>
       </CardContent>
     </Card>
