@@ -4,7 +4,9 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
-  MM_PER_INCH,
+  MAX_BITE_MM,
+  MIN_BITE_MM,
+  PILOT_HOLE_MM,
   estimateJointLength,
   formatLength,
   formatThickness,
@@ -102,13 +104,20 @@ export function HowTo({ inputs, exterior, unit }: { inputs: BoxInputs; exterior:
               <Table>
                 <TableBody>
                   <TableRow>
-                    <TableHead>Pilot hole in the second panel</TableHead>
-                    <TableCell>{imperial ? fraction(screw.pilotMm / MM_PER_INCH) : `${screw.pilotMm} mm`}</TableCell>
+                    <TableHead>Bite fence</TableHead>
+                    <TableCell className="whitespace-normal">
+                      Never less than {formatLength(MIN_BITE_MM, unit)}, and never more than{" "}
+                      {formatLength(MAX_BITE_MM, unit)}. Past that, a screw risks breaking through the side.
+                    </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableHead>Clearance hole in the first panel</TableHead>
-                    <TableCell>
-                      {imperial ? fraction(screw.clearanceMm / MM_PER_INCH) : `${screw.clearanceMm} mm`}
+                    <TableHead>Pilot hole</TableHead>
+                    <TableCell>{formatLength(PILOT_HOLE_MM, unit)}, every time</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableHead>Countersink</TableHead>
+                    <TableCell className="whitespace-normal">
+                      Really worth it on a project like this: the heads sit flush.
                     </TableCell>
                   </TableRow>
                   <TableRow>
@@ -117,9 +126,7 @@ export function HowTo({ inputs, exterior, unit }: { inputs: BoxInputs; exterior:
                   </TableRow>
                 </TableBody>
               </Table>
-              <p>
-                Always drill pilot holes in plywood edges, or the layers split. Countersink so the heads sit flush.
-              </p>
+              <p>Always drill pilot holes in plywood edges, or the layers split.</p>
             </AccordionContent>
           </AccordionItem>
 

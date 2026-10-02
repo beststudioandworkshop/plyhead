@@ -14,9 +14,14 @@ describe("part palette", () => {
     expect(Object.keys(PART_TYPE_LABEL).sort()).toEqual([...TYPES].sort())
   })
 
-  it("colours are pairwise distinct and differ from the hinge colour", () => {
-    const all = [...Object.values(PART_COLORS), HINGE_COLOR]
+  it("part colours are pairwise distinct", () => {
+    const all = Object.values(PART_COLORS)
     expect(new Set(all).size).toBe(all.length)
+  })
+
+  it("the hinge line stands out against the lid it is drawn on", () => {
+    // It is only ever drawn on a lid, so it may share a colour with a part that is never next to it.
+    expect(HINGE_COLOR).not.toBe(PART_COLORS.lid)
   })
 
   it("labels are distinct", () => {

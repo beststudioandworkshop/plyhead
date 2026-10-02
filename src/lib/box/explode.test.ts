@@ -80,7 +80,7 @@ describe("explodeOffset", () => {
 
         it(`moves every part along exactly one axis by the distance (${label})`, () => {
           const c = centreOfExterior(result)
-          for (const part of result.parts) {
+          for (const part of result.parts.filter((x) => x.type !== "divider")) {
             const off = explodeOffset(part, c, DISTANCE)
             expect(nonZero(off), part.id).toHaveLength(1)
             expect(Math.abs(nonZero(off)[0]), part.id).toBe(DISTANCE)
@@ -89,10 +89,20 @@ describe("explodeOffset", () => {
 
         it(`moves every part away from the centre in the right direction (${label})`, () => {
           const c = centreOfExterior(result)
-          for (const part of result.parts) {
+          for (const part of result.parts.filter((x) => x.type !== "divider")) {
             const off = explodeOffset(part, c, DISTANCE)
             const [axis, sign] = expectedDir(part, lidPosition, c)
             expect(off[axis], part.id).toBe(sign * DISTANCE)
+          }
+        })
+
+        it(`dividers stay put at [0, 0, 0] (${label})`, () => {
+          const c = centreOfExterior(result)
+          const divs = result.parts.filter((x) => x.type === "divider")
+          expect(divs).toHaveLength(dividers)
+          for (const part of divs) {
+            expect(explodeOffset(part, c, DISTANCE), part.id).toEqual([0, 0, 0])
+            expect(explodeOffset(part, [1e6, -1e6, 0], DISTANCE), part.id).toEqual([0, 0, 0])
           }
         })
        }
@@ -117,7 +127,7 @@ describe("explodeOffset", () => {
   it("non-leg parts still move along their thinnest axis, away from the centre", () => {
     const r = buildBox(inputs({ legs: withLegs("tapered") }))
     const c = centreOfExterior(r)
-    for (const p of r.parts.filter((x) => x.type !== "leg")) {
+    for (const p of r.parts.filter((x) => x.type !== "leg" && x.type !== "divider")) {
       const axis = [0, 1, 2].reduce((best, a) => (p.extents[a] < p.extents[best] ? a : best), 0)
       const off = explodeOffset(p, c, DISTANCE)
       expect(off[axis]).toBe(p.center[axis] >= c[axis] ? DISTANCE : -DISTANCE)

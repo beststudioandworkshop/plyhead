@@ -9,9 +9,20 @@ import type { Dims, LidPosition } from "./types"
  * two tiers:
  *   good:   1" of bite into the second panel, a screw about every 8"
  *   better: 1 1/2" of bite, a screw about every 10"
+ * Bite is fenced between 1" and 2" either way.
  */
 
 export type ScrewTierId = "good" | "better"
+
+/**
+ * The fence: never less than 1" of bite, and never more than 2". Under an inch
+ * doesn't hold; over two risks the screw breaking through the side.
+ */
+export const MIN_BITE_MM = 1 * MM_PER_INCH
+export const MAX_BITE_MM = 2 * MM_PER_INCH
+
+/** Pilot holes are always 1/8". Countersink the heads: it's worth it on a project like this. */
+export const PILOT_HOLE_MM = MM_PER_INCH / 8
 
 export const SCREW_TIERS: Record<ScrewTierId, { biteMm: number; spacingMm: number }> = {
   good: { biteMm: 1 * MM_PER_INCH, spacingMm: 8 * MM_PER_INCH },
@@ -23,8 +34,10 @@ const IMPERIAL_LENGTHS = [1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4]
 const METRIC_LENGTHS = [25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100]
 
 export interface ScrewTierAdvice {
-  /** How far the screw should reach into the second panel (mm). */
+  /** How far the screw should reach into the second panel (mm), inside the fence. */
   biteMm: number
+  /** The bite you actually get with the stock length chosen (mm). */
+  actualBiteMm: number
   /** Minimum screw length: panel thickness plus the bite (mm). */
   minLengthMm: number
   /** Stock length that meets the minimum: imperial (inches) and metric (mm). */
@@ -39,25 +52,35 @@ export interface ScrewAdvice {
   gauge: "#6" | "#8"
   /** Nominal shank diameter (mm). */
   shankMm: number
-  /** Pilot hole in the receiving panel (mm). */
+  /** Pilot hole (mm): always 1/8". */
   pilotMm: number
-  /** Clearance hole in the panel the screw passes through (mm). */
-  clearanceMm: number
   good: ScrewTierAdvice
   better: ScrewTierAdvice
 }
 
+/**
+ * Smallest stock length that gives at least `wantedBite`, unless that would
+ * bite past the fence, in which case the longest stock that stays inside it.
+ */
+function pickStock(stock: number[], toMm: (l: number) => number, thicknessMm: number, wantedBite: number): number {
+  const fits = (l: number, bite: number) => toMm(l) - thicknessMm >= bite - 1e-9
+  const first = stock.find((l) => fits(l, wantedBite)) ?? stock[stock.length - 1]
+  if (toMm(first) - thicknessMm <= MAX_BITE_MM + 1e-9) return first
+  const inside = [...stock].reverse().find((l) => toMm(l) - thicknessMm <= MAX_BITE_MM + 1e-9 && fits(l, MIN_BITE_MM))
+  return inside ?? first
+}
+
 function tierAdvice(thicknessMm: number, tier: ScrewTierId): ScrewTierAdvice {
-  const { biteMm, spacingMm } = SCREW_TIERS[tier]
-  const minLengthMm = thicknessMm + biteMm
+  const { spacingMm } = SCREW_TIERS[tier]
+  const biteMm = Math.min(MAX_BITE_MM, Math.max(MIN_BITE_MM, SCREW_TIERS[tier].biteMm))
+  const lengthIn = pickStock(IMPERIAL_LENGTHS, (l) => l * MM_PER_INCH, thicknessMm, biteMm)
+  const lengthMetricMm = pickStock(METRIC_LENGTHS, (l) => l, thicknessMm, biteMm)
   return {
     biteMm,
-    minLengthMm,
-    lengthIn:
-      IMPERIAL_LENGTHS.find((l) => l * MM_PER_INCH >= minLengthMm - 1e-9) ??
-      IMPERIAL_LENGTHS[IMPERIAL_LENGTHS.length - 1],
-    lengthMetricMm:
-      METRIC_LENGTHS.find((l) => l >= minLengthMm - 1e-9) ?? METRIC_LENGTHS[METRIC_LENGTHS.length - 1],
+    actualBiteMm: lengthIn * MM_PER_INCH - thicknessMm,
+    minLengthMm: thicknessMm + biteMm,
+    lengthIn,
+    lengthMetricMm,
     spacingMm,
   }
 }
@@ -67,8 +90,7 @@ export function screwAdvice(thicknessMm: number): ScrewAdvice {
   return {
     gauge: thin ? "#6" : "#8",
     shankMm: thin ? 3.5 : 4.2,
-    pilotMm: thin ? 2.5 : 3,
-    clearanceMm: thin ? 3.5 : 4.2,
+    pilotMm: PILOT_HOLE_MM,
     good: tierAdvice(thicknessMm, "good"),
     better: tierAdvice(thicknessMm, "better"),
   }

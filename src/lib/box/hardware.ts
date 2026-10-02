@@ -149,9 +149,9 @@ export function hardwareList(inputs: BoxInputs, result: BoxResult, unit: Unit): 
     id: "pilot-bit",
     category: "supplies",
     name: "Pilot-hole bit and countersink",
-    spec: adv.gauge,
+    spec: `${formatLength(adv.pilotMm, unit)} pilot bit`,
     qty: 1,
-    note: `Pilot ${formatThickness(adv.pilotMm, unit)} in the second panel, clearance ${formatThickness(adv.clearanceMm, unit)} in the first`,
+    note: "Pilot holes are always this size. Countersink the heads: it's worth it on a project like this.",
   })
 
   return items.sort((a, b) => CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category))

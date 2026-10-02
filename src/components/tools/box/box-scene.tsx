@@ -3,11 +3,14 @@
 import * as React from "react"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { Edges, Line, OrbitControls } from "@react-three/drei"
-import { ExtrudeGeometry, Shape, Vector2, type BufferGeometry, type Group } from "three"
+import { Color, ExtrudeGeometry, Shape, Vector2, Vector3, type BufferGeometry, type Group, type WebGLProgramParametersWithUniforms } from "three"
 
 import {
+  GRAIN_DARK,
+  GRAIN_LIGHT,
   HINGE_COLOR,
   PART_COLORS,
+  UNIVERSAL_COLOR,
   centerOf,
   defaultExplodeDistance,
   explodeOffset,
@@ -32,7 +35,10 @@ const HINGE_LIFT_MM = 1.5
 const EDGE_LIGHT = "hsl(0, 0%, 12%)"
 const EDGE_DARK = "hsl(0, 0%, 90%)"
 
+export type Surface = "hatch" | "grain"
+
 interface SceneProps {
+  surface: Surface
   result: BoxResult
   lidPosition: LidPosition
   exploded: boolean
@@ -50,19 +56,102 @@ function plateGeometry(part: Part): BufferGeometry {
   return geometry
 }
 
+/**
+ * Patches a standard material so its colour comes from the part's own local
+ * coordinates: a diagonal hatch (the part's colour striped with the shared
+ * colour), or a generic plywood grain tinted toward the part's colour.
+ */
+function useSurface(part: Part, surface: Surface, radius: number) {
+  return React.useMemo(() => {
+    const unique = new Color(PART_COLORS[part.type])
+    const universal = new Color(UNIVERSAL_COLOR)
+    const grainLight = new Color(GRAIN_LIGHT)
+    const grainDark = new Color(GRAIN_DARK)
+    // Grain runs along the part's length: the longest axis of a board, local x of a plate, y of a dowel.
+    const axis =
+      part.shape === "cylinder"
+        ? new Vector3(0, 1, 0)
+        : part.shape === "polygon"
+          ? new Vector3(1, 0, 0)
+          : part.extents[0] >= part.extents[1] && part.extents[0] >= part.extents[2]
+            ? new Vector3(1, 0, 0)
+            : part.extents[1] >= part.extents[2]
+              ? new Vector3(0, 1, 0)
+              : new Vector3(0, 0, 1)
+    const period = Math.max(radius * 0.05, 5)
+    const freq = (Math.PI * 2) / Math.max(radius * 0.03, 3)
+
+    const onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
+      shader.uniforms.uUnique = { value: unique }
+      shader.uniforms.uUniversal = { value: universal }
+      shader.uniforms.uGrainLight = { value: grainLight }
+      shader.uniforms.uGrainDark = { value: grainDark }
+      shader.uniforms.uAxis = { value: axis }
+      shader.uniforms.uPeriod = { value: period }
+      shader.uniforms.uFreq = { value: freq }
+      shader.uniforms.uGrain = { value: surface === "grain" ? 1 : 0 }
+      shader.vertexShader = shader.vertexShader
+        .replace("#include <common>", "#include <common>\nvarying vec3 vObj;")
+        .replace("#include <begin_vertex>", "#include <begin_vertex>\nvObj = position;")
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          "#include <common>",
+          `#include <common>
+varying vec3 vObj;
+uniform vec3 uUnique;
+uniform vec3 uUniversal;
+uniform vec3 uGrainLight;
+uniform vec3 uGrainDark;
+uniform vec3 uAxis;
+uniform float uPeriod;
+uniform float uFreq;
+uniform float uGrain;`,
+        )
+        .replace(
+          "#include <color_fragment>",
+          `#include <color_fragment>
+if (uGrain < 0.5) {
+  // Anti-aliased stripes: a triangle wave smoothed by how fast it changes on screen,
+  // so they blur to an even mix instead of moiré when seen at a shallow angle.
+  float t = (vObj.x + vObj.y + vObj.z) / uPeriod;
+  float tri = abs(fract(t) * 2.0 - 1.0);
+  float w = fwidth(t) * 2.0;
+  float stripe = smoothstep(0.5 - w, 0.5 + w, tri);
+  diffuseColor.rgb = mix(uUniversal, uUnique, stripe);
+} else {
+  float along = dot(vObj, uAxis);
+  vec3 across = vObj - along * uAxis;
+  float wave = sin(dot(across, vec3(0.7, 0.3, 1.1)) * uFreq * 0.3 + along * uFreq * 0.05);
+  float coarse = sin(dot(across, vec3(1.0, 1.7, 2.3)) * uFreq + 2.5 * wave);
+  float fine = sin(dot(across, vec3(2.1, 1.3, 0.9)) * uFreq * 3.1 + 1.5 * sin(along * uFreq * 0.05));
+  float g = clamp(0.5 + 0.35 * coarse + 0.15 * fine, 0.0, 1.0);
+  vec3 wood = mix(uGrainDark, uGrainLight, g);
+  diffuseColor.rgb = mix(wood, uUnique, 0.32);
+}`,
+        )
+    }
+    return { onBeforeCompile, key: `${surface}` }
+  }, [part, surface, radius])
+}
+
 function PartMesh({
   part,
   offset,
   progress,
   edgeColor,
   hingeLift,
+  surface,
+  radius,
 }: {
   part: Part
   offset: Vec3
   progress: React.RefObject<number>
   edgeColor: string
   hingeLift: Vec3
+  surface: Surface
+  radius: number
 }) {
+  const material = useSurface(part, surface, radius)
   const group = React.useRef<Group>(null)
   const invalidate = useThree((s) => s.invalidate)
 
@@ -90,7 +179,14 @@ function PartMesh({
         ) : (
           <boxGeometry args={part.extents} />
         )}
-        <meshStandardMaterial color={PART_COLORS[part.type]} roughness={0.75} metalness={0} />
+        <meshStandardMaterial
+          key={material.key}
+          color={PART_COLORS[part.type]}
+          roughness={0.75}
+          metalness={0}
+          onBeforeCompile={material.onBeforeCompile}
+          customProgramCacheKey={() => material.key}
+        />
         <Edges color={edgeColor} threshold={15} />
       </mesh>
       {hinge ? (
@@ -112,7 +208,7 @@ function PartMesh({
   )
 }
 
-function Scene({ result, lidPosition, exploded, resetKey, dark }: SceneProps) {
+function Scene({ result, lidPosition, exploded, resetKey, dark, surface }: SceneProps) {
   const progress = React.useRef(0)
   const controls = React.useRef<React.ComponentRef<typeof OrbitControls>>(null)
   const getState = useThree((s) => s.get)
@@ -244,6 +340,8 @@ function Scene({ result, lidPosition, exploded, resetKey, dark }: SceneProps) {
           progress={progress}
           edgeColor={edgeColor}
           hingeLift={hingeLift}
+          surface={surface}
+          radius={radius}
         />
       ))}
       <OrbitControls ref={controls} makeDefault enableDamping={false} maxPolarAngle={Math.PI * 0.98} />

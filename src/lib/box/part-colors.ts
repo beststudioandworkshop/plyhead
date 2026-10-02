@@ -2,19 +2,35 @@ import type { PartType } from "./types"
 
 /**
  * Colours for the 3D view and its legend, by part type. WebGL materials can't
- * read CSS tokens, so these live here as HSL strings (the one deliberate
- * exception to "tokens only"). Chosen to stay distinct in light and dark.
+ * read CSS tokens, so these live here as hex values (the one deliberate
+ * exception to "tokens only"). The palette: tangerine, sky, tea, lavender,
+ * mustard, pink quartz, red passion and muted black, with seashell as the
+ * shared stripe colour.
  */
 export const PART_COLORS: Record<PartType, string> = {
-  side: "hsl(205, 30%, 50%)",
-  front: "hsl(150, 24%, 45%)",
-  back: "hsl(262, 20%, 56%)",
-  top: "hsl(42, 52%, 54%)",
-  bottom: "hsl(345, 30%, 54%)",
-  lid: "hsl(24, 88%, 54%)",
-  leg: "hsl(24, 30%, 34%)",
-  divider: "hsl(188, 30%, 42%)",
+  lid: "#ED773C", // tangerine
+  side: "#9ED6DF", // sky
+  front: "#245E55", // tea
+  back: "#808BC5", // lavender
+  top: "#EAC119", // mustard yellow
+  bottom: "#EAA7C7", // pink quartz
+  leg: "#C63F3E", // red passion
+  divider: "#1D1D1B", // muted black
 }
+
+/**
+ * The 3D surface is a diagonal hatch: each part's own colour above, striped
+ * with this one colour that every part shares (seashell).
+ */
+export const UNIVERSAL_COLOR = "#EAE4DA"
+
+/** Base tones for the generic plywood-grain look. Each part is tinted a little toward its own colour. */
+export const GRAIN_LIGHT = "#D9B98A"
+export const GRAIN_DARK = "#B98D58"
+
+/** A small CSS swatch with the same hatch the 3D view uses (for legends). */
+export const hatchSwatch = (color: string) =>
+  `repeating-linear-gradient(-45deg, ${color} 0 3px, ${UNIVERSAL_COLOR} 3px 6px)`
 
 export const PART_TYPE_LABEL: Record<PartType, string> = {
   side: "Sides",
@@ -27,5 +43,5 @@ export const PART_TYPE_LABEL: Record<PartType, string> = {
   divider: "Dividers",
 }
 
-/** Hinge edge indicator. */
-export const HINGE_COLOR = "hsl(350, 85%, 48%)"
+/** Hinge edge indicator (muted black). */
+export const HINGE_COLOR = "#1D1D1B"

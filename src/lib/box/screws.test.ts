@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { MM_PER_INCH } from "./constants"
-import { SCREW_TIERS, estimateJointLength, screwAdvice, screwCount } from "./screws"
+import { MAX_BITE_MM, MIN_BITE_MM, PILOT_HOLE_MM, SCREW_TIERS, estimateJointLength, screwAdvice, screwCount } from "./screws"
 
 const IN = MM_PER_INCH
 
@@ -13,6 +13,58 @@ describe("SCREW_TIERS", () => {
   })
 })
 
+describe("bite fence", () => {
+  const IMPERIAL = [1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4]
+  const thicknesses = [11.938, 12, 18, 18.034]
+  for (let t = 3; t <= 60; t += 0.5) thicknesses.push(t)
+
+  it("constants are 1 in and 2 in", () => {
+    expect(MIN_BITE_MM).toBeCloseTo(25.4, 9)
+    expect(MAX_BITE_MM).toBeCloseTo(50.8, 9)
+  })
+
+  it("tier biteMm is clamped to the fence", () => {
+    for (const t of thicknesses) {
+      for (const tier of [screwAdvice(t).good, screwAdvice(t).better]) {
+        expect(tier.biteMm).toBeGreaterThanOrEqual(MIN_BITE_MM - 1e-6)
+        expect(tier.biteMm).toBeLessThanOrEqual(MAX_BITE_MM + 1e-6)
+      }
+    }
+  })
+
+  it("actualBiteMm = imperial stock length - thickness, inside the fence when a stock length can do it", () => {
+    for (const t of thicknesses) {
+      const a = screwAdvice(t)
+      const feasible = IMPERIAL.some((l) => {
+        const bite = l * IN - t
+        return bite >= MIN_BITE_MM - 1e-6 && bite <= MAX_BITE_MM + 1e-6
+      })
+      for (const tier of [a.good, a.better]) {
+        expect(tier.actualBiteMm).toBeCloseTo(tier.lengthIn * IN - t, 9)
+        if (feasible) {
+          expect(tier.actualBiteMm, `t=${t}`).toBeGreaterThanOrEqual(MIN_BITE_MM - 1e-6)
+          expect(tier.actualBiteMm, `t=${t}`).toBeLessThanOrEqual(MAX_BITE_MM + 1e-6)
+        }
+      }
+    }
+  })
+
+  it("picks the smallest stock with enough bite, or the longest within the fence", () => {
+    // 18 mm: good wants 25.4 -> 1.75 in (26.4); better wants 38.1 -> 2.5 in (45.5)
+    expect(screwAdvice(18).good.actualBiteMm).toBeCloseTo(1.75 * IN - 18, 9)
+    expect(screwAdvice(18).better.actualBiteMm).toBeCloseTo(2.5 * IN - 18, 9)
+    // 28 mm: better wants 38.1 -> 3 in would bite 48.2 (inside) 
+    expect(screwAdvice(28).better.lengthIn).toBe(3)
+  })
+
+  it("very thick ply where even the smallest sufficient stock overshoots: what the module does", () => {
+    // 200 mm: no stock reaches; falls back to the longest stock (4 in), bite negative
+    const a = screwAdvice(200)
+    expect(a.good.lengthIn).toBe(4)
+    expect(a.good.actualBiteMm).toBeCloseTo(4 * IN - 200, 9)
+  })
+})
+
 describe("screwAdvice gauge and holes", () => {
   it("gauge is #6 below 10 mm, otherwise #8", () => {
     expect(screwAdvice(6).gauge).toBe("#6")
@@ -21,11 +73,17 @@ describe("screwAdvice gauge and holes", () => {
     expect(screwAdvice(18).gauge).toBe("#8")
   })
 
-  it("hole sizes follow the gauge", () => {
+  it("shank follows the gauge; pilot is always 1/8 in; no clearanceMm", () => {
     const thin = screwAdvice(6)
     const thick = screwAdvice(18)
-    expect([thin.shankMm, thin.pilotMm, thin.clearanceMm]).toEqual([3.5, 2.5, 3.5])
-    expect([thick.shankMm, thick.pilotMm, thick.clearanceMm]).toEqual([4.2, 3, 4.2])
+    expect(thin.shankMm).toBe(3.5)
+    expect(thick.shankMm).toBe(4.2)
+    for (const t of [3, 6, 9.99, 10, 11.938, 12, 18, 18.034, 25, 40, 60]) {
+      const a = screwAdvice(t)
+      expect(a.pilotMm).toBe(3.175)
+      expect("clearanceMm" in a).toBe(false)
+    }
+    expect(PILOT_HOLE_MM).toBe(3.175)
   })
 
   it("tier bite and spacing come from SCREW_TIERS", () => {

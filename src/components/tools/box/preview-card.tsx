@@ -10,7 +10,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
-import { HINGE_COLOR, PART_COLORS, PART_TYPE_LABEL, type BoxResult, type LidPosition, type PartType } from "@/lib/box"
+import { Choice } from "./choice"
+import type { Surface } from "./box-scene"
+import { HINGE_COLOR, PART_COLORS, PART_TYPE_LABEL, hatchSwatch, type BoxResult, type LidPosition, type PartType } from "@/lib/box"
 
 const BoxScene = dynamic(() => import("./box-scene"), {
   ssr: false,
@@ -22,6 +24,7 @@ const LEGEND_ORDER: PartType[] = ["side", "front", "back", "top", "bottom", "div
 export function PreviewCard({ result, lidPosition }: { result: BoxResult; lidPosition: LidPosition }) {
   const { resolvedTheme } = useTheme()
   const [exploded, setExploded] = React.useState(false)
+  const [surface, setSurface] = React.useState<Surface>("hatch")
   const [resetKey, setResetKey] = React.useState(0)
 
   const present = new Set(result.parts.map((p) => p.type))
@@ -41,6 +44,7 @@ export function PreviewCard({ result, lidPosition }: { result: BoxResult; lidPos
               lidPosition={lidPosition}
               exploded={exploded}
               resetKey={resetKey}
+              surface={surface}
               dark={resolvedTheme === "dark"}
             />
           ) : (
@@ -55,6 +59,17 @@ export function PreviewCard({ result, lidPosition }: { result: BoxResult; lidPos
             <Switch checked={exploded} onCheckedChange={setExploded} />
             Exploded view
           </Label>
+          <Choice<Surface>
+            label="Surface"
+            size="sm"
+            className="w-fit"
+            value={surface}
+            onChange={setSurface}
+            options={[
+              { value: "hatch", label: "Hatch" },
+              { value: "grain", label: "Plywood grain" },
+            ]}
+          />
           <Button variant="outline" size="sm" onClick={() => setResetKey((k) => k + 1)}>
             <RotateCcwIcon data-icon="inline-start" />
             Reset view
@@ -67,14 +82,18 @@ export function PreviewCard({ result, lidPosition }: { result: BoxResult; lidPos
               <span
                 aria-hidden
                 className="size-3 rounded-sm border border-border"
-                style={{ backgroundColor: PART_COLORS[t] }}
+                style={{ backgroundImage: hatchSwatch(PART_COLORS[t]) }}
               />
               {PART_TYPE_LABEL[t]}
             </li>
           ))}
           {hasHinge ? (
             <li className="flex items-center gap-1.5">
-              <span aria-hidden className="h-0.5 w-3 rounded-full" style={{ backgroundColor: HINGE_COLOR }} />
+              <span
+                aria-hidden
+                className="h-1 w-4 rounded-full border border-border"
+                style={{ backgroundColor: HINGE_COLOR }}
+              />
               Hinge (inside the lid)
             </li>
           ) : null}

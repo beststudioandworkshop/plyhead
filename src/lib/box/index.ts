@@ -21,7 +21,15 @@ export {
   easeInOutCubic,
   EXPLODE_STAGGER,
 } from "./explode"
-export { PART_COLORS, PART_TYPE_LABEL, HINGE_COLOR } from "./part-colors"
+export {
+  PART_COLORS,
+  PART_TYPE_LABEL,
+  HINGE_COLOR,
+  UNIVERSAL_COLOR,
+  GRAIN_LIGHT,
+  GRAIN_DARK,
+  hatchSwatch,
+} from "./part-colors"
 export { lidAxes, type LidAxes } from "./lid"
 export { nestParts, nestableParts, type Placement, type NestedSheet, type NestResult } from "./nesting"
 export { buildDxf, layerName, SHEET_LAYER, type DxfOptions } from "./dxf"
@@ -31,6 +39,9 @@ export {
   estimateJointLength,
   screwCount,
   SCREW_TIERS,
+  MIN_BITE_MM,
+  MAX_BITE_MM,
+  PILOT_HOLE_MM,
   type ScrewAdvice,
   type ScrewTierAdvice,
   type ScrewTierId,

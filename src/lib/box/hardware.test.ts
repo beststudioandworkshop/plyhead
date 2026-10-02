@@ -202,10 +202,15 @@ describe("fasteners and supplies", () => {
     expect(find(list({ dividers: 2 }), "Wood screws, main joints")!.qty).toBeGreaterThan(base)
   })
 
-  it("pilot bit note uses the screw advice", () => {
+  it("pilot bit spec is the fixed 1/8 in pilot, in either unit", () => {
     const a = screwAdvice(18.03)
+    expect(a.pilotMm).toBeCloseTo(3.175, 9)
+    expect(find(list({}, "in"), "Pilot-hole bit and countersink")!.spec).toBe('1/8" pilot bit')
+    expect(find(list({}, "mm"), "Pilot-hole bit and countersink")!.spec).toBe("3.2 mm pilot bit")
+  })
+
+  it("pilot bit note says pilots are always this size and to countersink", () => {
     const n = find(list({}, "mm"), "Pilot-hole bit and countersink")!.note!
-    expect(n).toContain(`Pilot ${a.pilotMm} mm`)
-    expect(n).toContain(`clearance ${a.clearanceMm} mm`)
+    expect(n).toBe("Pilot holes are always this size. Countersink the heads: it's worth it on a project like this.")
   })
 })
