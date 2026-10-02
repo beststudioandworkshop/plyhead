@@ -138,10 +138,12 @@
     @apply font-sans;
   }
 }
-/* Input zone: inputs, selects and chosen options carry the entry accent as a
-   diagonal hatch. Deliberately outside any @layer so it wins over the kit's
-   utility classes. */
-.entry-zone {
+/* Entry accent: inputs, selects and chosen options carry it as a diagonal hatch.
+   `.entry-zone` is a whole panel (with a hatched strip along its top edge);
+   `.entry-fields` just styles the fields inside something else, like a dialog.
+   Deliberately outside any @layer so it wins over the kit's utility classes. */
+.entry-zone,
+.entry-fields {
   --entry-hatch: repeating-linear-gradient(
     -45deg,
     var(--entry) 0 6px,
@@ -152,6 +154,8 @@
     var(--entry-soft) 0 6px,
     color-mix(in oklab, var(--entry-soft) 88%, var(--entry)) 6px 12px
   );
+}
+.entry-zone {
   position: relative;
   overflow: hidden;
 }
@@ -163,19 +167,17 @@
   height: 0.75rem;
   background-image: var(--entry-hatch);
 }
-.entry-zone [data-slot="input"],
-.entry-zone [data-slot="select-trigger"] {
+:is(.entry-zone, .entry-fields) :is([data-slot="input"], [data-slot="select-trigger"], [data-slot="textarea"]) {
   border-color: var(--entry);
   background-color: var(--entry-soft);
   background-image: var(--entry-hatch-soft);
 }
-.entry-zone [data-slot="input"]:focus-visible,
-.entry-zone [data-slot="select-trigger"]:focus-visible {
+:is(.entry-zone, .entry-fields) :is([data-slot="input"], [data-slot="select-trigger"], [data-slot="textarea"]):focus-visible {
   border-color: var(--entry);
   --tw-ring-color: color-mix(in oklab, var(--entry) 45%, transparent);
 }
-.entry-zone [data-slot="toggle-group-item"][aria-pressed="true"],
-.entry-zone [data-slot="toggle-group-item"][data-pressed] {
+:is(.entry-zone, .entry-fields) [data-slot="toggle-group-item"][aria-pressed="true"],
+:is(.entry-zone, .entry-fields) [data-slot="toggle-group-item"][data-pressed] {
   background-color: var(--entry);
   background-image: var(--entry-hatch);
   color: var(--entry-foreground);

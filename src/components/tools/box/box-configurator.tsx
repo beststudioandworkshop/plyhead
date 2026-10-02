@@ -17,24 +17,34 @@ import {
   SPAN_SUGGEST_RATIO,
   THICKNESS_PRESETS,
   buildBox,
+  diyEstimate,
+  estimateJointLength,
   formatLength,
   groupParts,
+  hardwareList,
+  kitEstimate,
   nestParts,
   resolveDimensions,
   roundParts,
   roundingStep,
+  screwAdvice,
+  screwCount,
   suggestDivider,
   type BoxInputs,
   type DimensionMode,
   type Dims,
   type RoundingMode,
+  type ShareState,
   type SheetPreset,
   type Unit,
 } from "@/lib/box"
 
+import { KIT_INCLUDES_HARDWARE, KIT_RATES, PRICES } from "@/config/shop"
 import { Controls } from "./controls"
 import { CutList } from "./cut-list"
+import { HardwareList } from "./hardware-list"
 import { HowTo } from "./how-to"
+import { OrderCard } from "./order-card"
 import { PreviewCard } from "./preview-card"
 import { SheetLayout } from "./sheet-layout"
 
@@ -64,13 +74,13 @@ function DimsLine({ label, dims, unit }: { label: string; dims: Dims; unit: Unit
   )
 }
 
-export function BoxConfigurator() {
-  const [inputs, setInputs] = React.useState<BoxInputs>(INITIAL)
-  const [unit, setUnit] = React.useState<Unit>("in")
-  const [thicknessPreset, setThicknessPreset] = React.useState(THICKNESS_PRESETS[1].id)
-  const [sheetId, setSheetId] = React.useState<SheetPreset["id"]>("4x8")
-  const [kerfMm, setKerfMm] = React.useState(DEFAULT_KERF_MM)
-  const [rounding, setRounding] = React.useState<RoundingMode>("exact")
+export function BoxConfigurator({ initial }: { initial?: ShareState }) {
+  const [inputs, setInputs] = React.useState<BoxInputs>(initial?.inputs ?? INITIAL)
+  const [unit, setUnit] = React.useState<Unit>(initial?.unit ?? "in")
+  const [thicknessPreset, setThicknessPreset] = React.useState(initial?.thicknessPreset ?? THICKNESS_PRESETS[1].id)
+  const [sheetId, setSheetId] = React.useState<SheetPreset["id"]>(initial?.sheetId ?? "4x8")
+  const [kerfMm, setKerfMm] = React.useState(initial?.kerfMm ?? DEFAULT_KERF_MM)
+  const [rounding, setRounding] = React.useState<RoundingMode>(initial?.rounding ?? "exact")
 
   const patch = (p: Partial<BoxInputs>) =>
     setInputs((prev) => {
@@ -115,6 +125,29 @@ export function BoxConfigurator() {
   const rows = React.useMemo(() => groupParts(cutParts), [cutParts])
   const sheet = SHEET_PRESETS.find((p) => p.id === sheetId) ?? SHEET_PRESETS[0]
   const nest = React.useMemo(() => nestParts(cutParts, sheet, kerfMm), [cutParts, sheet, kerfMm])
+  const hardware = React.useMemo(() => hardwareList(inputs, result, unit), [inputs, result, unit])
+  const sheetPartCount = nest.sheets.reduce((n, sh) => n + sh.placements.length, 0)
+  const jointLengthMm = estimateJointLength(result.exterior, inputs.lidPosition, inputs.dividers)
+  const diy = React.useMemo(
+    () => diyEstimate({ sheets: nest.sheets.length, sheetId, hardware, prices: PRICES }),
+    [nest.sheets.length, sheetId, hardware],
+  )
+  const kit = React.useMemo(
+    () =>
+      kitEstimate({
+        sheets: nest.sheets.length,
+        sheetId,
+        sheetParts: sheetPartCount,
+        jointLengthMm,
+        pilotHoles: screwCount(jointLengthMm, screwAdvice(inputs.thickness).good.spacingMm),
+        includeHardware: KIT_INCLUDES_HARDWARE,
+        hardware,
+        prices: PRICES,
+        rates: KIT_RATES,
+      }),
+    [nest.sheets.length, sheetId, sheetPartCount, jointLengthMm, inputs.thickness, hardware],
+  )
+  const shareState: ShareState = { inputs, unit, rounding, sheetId, kerfMm, thicknessPreset }
   const dividerTip = React.useMemo(
     () =>
       suggestDivider(
@@ -195,6 +228,15 @@ export function BoxConfigurator() {
         <div className="flex flex-col gap-6 lg:col-start-2">
           <CutList rows={rows} unit={unit} rounded={rounding === "easier"} />
           <SheetLayout nest={nest} parts={cutParts} unit={unit} />
+          <HardwareList items={hardware} />
+          <OrderCard
+            diy={diy}
+            kit={kit}
+            state={shareState}
+            exterior={result.exterior}
+            interior={result.interior}
+            unit={unit}
+          />
           <HowTo inputs={inputs} exterior={result.exterior} unit={unit} />
         </div>
       ) : null}
