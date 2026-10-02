@@ -46,3 +46,32 @@ export function viewRadius(b: Box, explodeDistance = 0): number {
 export function defaultExplodeDistance(ext: { w: number; d: number; h: number }): number {
   return Math.min(ext.w, ext.d, ext.h) * 0.5
 }
+
+/**
+ * Staging for the exploded-view animation. A single timeline `t` runs 0 → 1
+ * when exploding and 1 → 0 when collapsing; each part starts later the
+ * further down this list it is. So exploding goes lid first, then the walls,
+ * then the bottom and legs, and collapsing runs in exactly the reverse order.
+ */
+const EXPLODE_ORDER: Record<Part["type"], number> = {
+  lid: 0,
+  top: 0.1,
+  divider: 0.25,
+  side: 0.5,
+  front: 0.5,
+  back: 0.5,
+  bottom: 0.8,
+  leg: 1,
+}
+
+/** Fraction of the timeline over which the start times are spread out. */
+export const EXPLODE_STAGGER = 0.4
+
+export const easeInOutCubic = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2)
+
+/** Where a part is (0 = home, 1 = fully exploded) when the timeline is at `t`. */
+export function partProgress(t: number, type: Part["type"]): number {
+  const delay = EXPLODE_STAGGER * EXPLODE_ORDER[type]
+  const local = (t - delay) / (1 - EXPLODE_STAGGER)
+  return easeInOutCubic(Math.min(1, Math.max(0, local)))
+}

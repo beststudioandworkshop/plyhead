@@ -17,6 +17,7 @@ export const SIZE_HINTS: { w: Hint[]; d: Hint[]; h: Hint[] } = {
     (u) => `A milk crate is about ${len(13, u)} square. Two side by side need about ${len(27, u)} inside.`,
     (u) => `Plywood comes in ${len(48, u)} wide sheets, so parts under that are easy to cut.`,
     (u) => `A kitchen cabinet is usually ${len(12, u)} to ${len(36, u)} wide.`,
+    (u) => `Making a seat for two? Allow about ${len(18, u)} of width per person, and add a cushion.`,
   ],
   d: [
     (u) => `A shoe box is about ${len(12, u)} deep, and a bookshelf is usually ${len(10, u)} to ${len(12, u)}.`,
@@ -29,6 +30,7 @@ export const SIZE_HINTS: { w: Hint[]; d: Hint[]; h: Hint[] } = {
     (u) => `A milk crate is about ${len(11, u)} tall, so allow ${len(12, u)} inside to store one.`,
     (u) => `A desk is about ${len(29, u)} high and a kitchen counter about ${len(36, u)}.`,
     (u) => `A step stool is usually ${len(8, u)} to ${len(12, u)} tall.`,
+    (u) => `Planning to sit on it? A 2 to 3 inch cushion on a ${len(15, u)} box makes a comfy seat.`,
   ],
 }
 

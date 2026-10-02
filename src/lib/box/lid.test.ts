@@ -13,6 +13,8 @@ const inputs = (overrides: Partial<BoxInputs> = {}): BoxInputs => ({
   hingeSide: "long",
   openLeaf: "second",
   legs: { style: "none", height: 100, diameter: 38, inset: 12, width: 76, footWidth: 38 },
+  bottomStyle: "inset",
+  dividers: 0,
   joinery: "butt",
   ...overrides,
 })
@@ -143,12 +145,12 @@ describe.each(CASES)("$label", ({ dims, lid, axes }) => {
   const slabMin: Vec3 = lid === "top" ? [0, dims.h - T, 0] : [0, 0, dims.d - T]
   const slabMax: Vec3 = [dims.w, dims.h, dims.d]
   const normal: Axis = lid === "top" ? 1 : 2
-  const outer = slabMax[normal]
+  const inner = slabMin[normal]
 
   const lidsOf = (lidType: LidType, hingeSide: HingeSide, openLeaf: LeafSide) =>
     buildBox(inputs({ dims, lidPosition: lid, lidType, hingeSide, openLeaf })).parts.filter((p) => p.type === "lid")
 
-  /** The hinge is a segment along the hinge axis, at `crossValue`, on the outer surface of `leaf`. */
+  /** The hinge is a segment along the hinge axis, at `crossValue`, on the inside face of `leaf`. */
   const expectHinge = (leaf: Part, hinge: HingeEdge | undefined, hingeAxis: Axis, crossAxis: Axis, end: 0 | 1) => {
     expect(hinge).toBeDefined()
     const h = hinge!
@@ -156,7 +158,7 @@ describe.each(CASES)("$label", ({ dims, lid, axes }) => {
     const crossValue = end === 0 ? lo(leaf)[crossAxis] : hi(leaf)[crossAxis]
     for (const pt of [h.from, h.to]) {
       near(pt[crossAxis], crossValue)
-      near(pt[normal], outer)
+      near(pt[normal], inner)
     }
     near(Math.min(h.from[hingeAxis], h.to[hingeAxis]), lo(leaf)[hingeAxis])
     near(Math.max(h.from[hingeAxis], h.to[hingeAxis]), hi(leaf)[hingeAxis])

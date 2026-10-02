@@ -7,11 +7,14 @@ import { FieldGroup, Field, FieldLabel, FieldTitle, FieldDescription } from "@/c
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import {
+  MAX_DIVIDERS,
+  SHEET_PRESETS,
   THICKNESS_PRESETS,
   formatLength,
   formatThickness,
   lidAxes,
   type Axis,
+  type BottomStyle,
   type BoxInputs,
   type DimensionMode,
   type Dims,
@@ -20,6 +23,7 @@ import {
   type LegStyle,
   type LidPosition,
   type LidType,
+  type SheetPreset,
   type Unit,
 } from "@/lib/box"
 
@@ -40,6 +44,11 @@ interface ControlsProps {
   onThicknessPreset: (id: string) => void
   /** Exterior size in mm; used to describe the lid's edges. */
   exterior: Dims
+  dividerTip: "seam" | "span" | null
+  sheetId: SheetPreset["id"]
+  kerfMm: number
+  onSheet: (id: SheetPreset["id"]) => void
+  onKerf: (mm: number) => void
   onLegs: (patch: Partial<BoxInputs["legs"]>) => void
 }
 
@@ -50,7 +59,20 @@ const LEAF_LABELS: Record<Axis, [string, string]> = {
   2: ["Back", "Front"],
 }
 
-export function Controls({ state, exterior, onUnit, onMode, onInputs, onThicknessPreset, onLegs }: ControlsProps) {
+export function Controls({
+  state,
+  exterior,
+  dividerTip,
+  sheetId,
+  kerfMm,
+  onSheet,
+  onKerf,
+  onUnit,
+  onMode,
+  onInputs,
+  onThicknessPreset,
+  onLegs,
+}: ControlsProps) {
   const { inputs, unit, thicknessPreset } = state
   const tipSeed = useTipSeed()
   const interior = inputs.dimensionMode === "interior"
@@ -244,6 +266,46 @@ export function Controls({ state, exterior, onUnit, onMode, onInputs, onThicknes
       <Separator />
 
       <Field>
+        <FieldTitle>Bottom panel</FieldTitle>
+        <Choice<BottomStyle>
+          label="Bottom panel"
+          value={inputs.bottomStyle}
+          onChange={(bottomStyle) => onInputs({ bottomStyle })}
+          options={[
+            { value: "inset", label: "Between walls" },
+            { value: "lap", label: "Under walls" },
+          ]}
+        />
+        <FieldDescription>
+          {inputs.bottomStyle === "inset"
+            ? "The bottom sits inside the four walls. Fine for storage, but the screws carry the load."
+            : "The walls stand on the bottom, so they bear on it and not just on screws. Better if anyone will sit on it."}
+        </FieldDescription>
+      </Field>
+
+      <Field>
+        <FieldTitle>Dividers</FieldTitle>
+        <Choice<string>
+          label="Number of dividers"
+          value={String(inputs.dividers)}
+          onChange={(v) => onInputs({ dividers: Number(v) })}
+          options={Array.from({ length: MAX_DIVIDERS + 1 }, (_, n) => ({
+            value: String(n),
+            label: n === 0 ? "None" : String(n),
+          }))}
+        />
+        <FieldDescription>
+          {dividerTip === "seam"
+            ? "Tip: a divider under the seam gives both lid halves something to rest on."
+            : dividerTip === "span"
+              ? "Tip: this is a long span. A divider keeps the bottom and lid from sagging."
+              : "Panels that split the inside. They never block the opening."}
+        </FieldDescription>
+      </Field>
+
+      <Separator />
+
+      <Field>
         <FieldTitle>Legs</FieldTitle>
         <Choice<LegStyle>
           label="Leg style"
@@ -311,6 +373,38 @@ export function Controls({ state, exterior, onUnit, onMode, onInputs, onThicknes
           )}
         </div>
       ) : null}
+
+      <Separator />
+
+      <Field>
+        <FieldLabel htmlFor="box-sheet">Sheet size</FieldLabel>
+        <Select
+          value={sheetId}
+          items={SHEET_PRESETS.map((p) => ({ value: p.id, label: p.label }))}
+          onValueChange={(v) => v && onSheet(v as SheetPreset["id"])}
+        >
+          <SelectTrigger id="box-sheet" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SHEET_PRESETS.map((p) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+
+      <DimensionInput
+        id="box-kerf"
+        label="Saw kerf"
+        valueMm={kerfMm}
+        unit={unit}
+        minMm={0}
+        onChange={onKerf}
+        description="Material the blade removes. Used to space parts on the sheet."
+      />
     </FieldGroup>
   )
 }

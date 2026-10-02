@@ -15,6 +15,8 @@ const base: BoxInputs = {
   hingeSide: "long",
   openLeaf: "second",
   legs: { style: "none", height: 100, diameter: 38, inset: 12, width: 76, footWidth: 38 },
+  bottomStyle: "inset",
+  dividers: 0,
   joinery: "butt",
 }
 
@@ -81,5 +83,22 @@ describe("exports", () => {
 
   it("text export is one line per row", () => {
     expect(cutListToText(rows, "in").split("\n")).toHaveLength(rows.length)
+  })
+})
+
+describe("groupParts with dividers", () => {
+  it.each([1, 2, 3])("%i dividers group into one Divider row of that quantity", (n) => {
+    const r = buildBox({ ...base, dividers: n })
+    expect(r.ok).toBe(true)
+    const rows = groupParts(r.parts).filter((x) => x.name === "Divider")
+    expect(rows).toHaveLength(1)
+    expect(rows[0].quantity).toBe(n)
+    expect(rows[0].type).toBe("divider")
+    expect(rows[0].partIds).toEqual(Array.from({ length: n }, (_, i) => `divider-${i + 1}`))
+    expect(groupParts(r.parts).reduce((s, x) => s + x.quantity, 0)).toBe(r.parts.length)
+  })
+
+  it("bounds are unchanged by dividers", () => {
+    expect(buildBox({ ...base, dividers: 3 }).bounds).toEqual(buildBox(base).bounds)
   })
 })

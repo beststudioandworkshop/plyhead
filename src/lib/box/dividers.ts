@@ -1,0 +1,95 @@
+import { MIN_DIVIDER_GAP_MM } from "./constants"
+import { lidAxes } from "./lid"
+import { partFromBox } from "./part"
+import type { Axis, Box, HingeSide, Issue, LidPosition, LidType, Part, Vec3 } from "./types"
+
+/**
+ * Dividers are vertical (or, for a front-lid box, optionally horizontal) panels
+ * inside the box. They always lie in a plane that contains the opening
+ * direction, so they never block access.
+ *  - Split / half lid: the divider sits under the seam, so both leaves rest on it.
+ *  - Full lid: dividers run across the longer span of the opening.
+ * With more than one, they're spaced to leave equal clear gaps.
+ */
+
+const size = (b: Box): Vec3 => [b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]]
+
+/** The axis dividers are perpendicular to. */
+export function dividerAxis(
+  interior: Box,
+  lid: LidPosition,
+  lidType: LidType,
+  hingeSide: HingeSide,
+): Axis {
+  const s = size(interior)
+  if (lidType !== "full") return lidAxes(s, lid, hingeSide).crossAxis
+  const [a, b]: [Axis, Axis] = lid === "top" ? [0, 2] : [0, 1]
+  return s[a] >= s[b] ? a : b
+}
+
+/** Clear gap between neighbouring dividers/walls for `count` dividers of thickness `t`. */
+export const dividerGap = (span: number, count: number, t: number) => (span - count * t) / (count + 1)
+
+export function validateDividers(
+  count: number,
+  interior: Box,
+  lid: LidPosition,
+  lidType: LidType,
+  hingeSide: HingeSide,
+  t: number,
+): Issue[] {
+  if (count <= 0) return []
+  const axis = dividerAxis(interior, lid, lidType, hingeSide)
+  if (dividerGap(size(interior)[axis], count, t) < MIN_DIVIDER_GAP_MM) {
+    return [
+      {
+        code: "dividers-no-room",
+        message: "There's no room for that many dividers. Use fewer, or make the box bigger.",
+        field: "dividers",
+      },
+    ]
+  }
+  return []
+}
+
+export function buildDividers(
+  count: number,
+  interior: Box,
+  lid: LidPosition,
+  lidType: LidType,
+  hingeSide: HingeSide,
+  t: number,
+): Part[] {
+  if (count <= 0) return []
+  const axis = dividerAxis(interior, lid, lidType, hingeSide)
+  const gap = dividerGap(size(interior)[axis], count, t)
+  const parts: Part[] = []
+  for (let i = 1; i <= count; i++) {
+    const start = interior.min[axis] + i * gap + (i - 1) * t
+    const min: Vec3 = [...interior.min]
+    const max: Vec3 = [...interior.max]
+    min[axis] = start
+    max[axis] = start + t
+    parts.push(partFromBox({ id: `divider-${i}`, name: "Divider", type: "divider" }, { min, max }, axis))
+  }
+  return parts
+}
+
+/**
+ * A friendly nudge toward dividers, or null. Pure so the UI and tests share it.
+ */
+export function suggestDivider(
+  count: number,
+  interior: Box,
+  lid: LidPosition,
+  lidType: LidType,
+  hingeSide: HingeSide,
+  t: number,
+  spanRatio: number,
+): "seam" | "span" | null {
+  if (count > 0) return null
+  if (lidType !== "full") return "seam"
+  const s = size(interior)
+  const [a, b]: [Axis, Axis] = lid === "top" ? [0, 2] : [0, 1]
+  return Math.max(s[a], s[b]) > spanRatio * t ? "span" : null
+}

@@ -14,6 +14,8 @@ const inputs = (overrides: Partial<BoxInputs> = {}): BoxInputs => ({
   hingeSide: "long",
   openLeaf: "second",
   legs: { style: "none", height: 100, diameter: 38, inset: 12, width: 76, footWidth: 38 },
+  bottomStyle: "inset",
+  dividers: 0,
   joinery: "butt",
   ...overrides,
 })
@@ -38,7 +40,7 @@ const DISTANCE = 40
 const nonZero = (v: Vec3) => v.filter((c) => c !== 0)
 
 /** Expected unit direction (axis, sign) for a part. */
-function expectedDir(part: Part, lid: LidPosition): [number, 1 | -1] {
+function expectedDir(part: Part, lid: LidPosition, centre: Vec3): [number, 1 | -1] {
   switch (part.id) {
     case "left":
       return [0, -1]
@@ -53,6 +55,10 @@ function expectedDir(part: Part, lid: LidPosition): [number, 1 | -1] {
     case "top":
       return [1, 1]
   }
+  if (part.type === "divider") {
+    const axis = [0, 1, 2].reduce((best, a) => (part.extents[a] < part.extents[best] ? a : best), 0)
+    return [axis, part.center[axis] >= centre[axis] ? 1 : -1]
+  }
   if (part.type === "lid") return lid === "top" ? [1, 1] : [2, 1]
   // Legs always drop straight down.
   if (part.type === "leg") return [1, -1]
@@ -63,8 +69,9 @@ describe("explodeOffset", () => {
   for (const lidPosition of LID_POSITIONS) {
     for (const lidType of LID_TYPES) {
       for (const style of LEG_STYLES) {
-        const label = `lid ${lidPosition}/${lidType}, legs ${style}`
-        const result = buildBox(inputs({ lidPosition, lidType, legs: withLegs(style) }))
+       for (const dividers of [0, 2]) {
+        const label = `lid ${lidPosition}/${lidType}, legs ${style}, dividers ${dividers}`
+        const result = buildBox(inputs({ lidPosition, lidType, dividers, legs: withLegs(style) }))
 
         it(`builds a valid box (${label})`, () => {
           expect(result.ok).toBe(true)
@@ -84,10 +91,11 @@ describe("explodeOffset", () => {
           const c = centreOfExterior(result)
           for (const part of result.parts) {
             const off = explodeOffset(part, c, DISTANCE)
-            const [axis, sign] = expectedDir(part, lidPosition)
+            const [axis, sign] = expectedDir(part, lidPosition, c)
             expect(off[axis], part.id).toBe(sign * DISTANCE)
           }
         })
+       }
       }
     }
   }
@@ -178,11 +186,12 @@ describe("exploded overlaps", () => {
   const overlaps = (a: Aabb, b: Aabb) =>
     [0, 1, 2].every((i) => a.lo[i] < b.hi[i] - TOL && b.lo[i] < a.hi[i] - TOL)
 
-  const cases: [LidPosition, LegStyle][] = []
-  for (const lp of LID_POSITIONS) for (const st of LEG_STYLES) cases.push([lp, st])
+  const cases: [LidPosition, LegStyle, number][] = []
+  for (const lp of LID_POSITIONS)
+    for (const st of LEG_STYLES) for (const dv of [0, 1, 3]) cases.push([lp, st, dv])
 
-  it.each(cases)("does not create new overlaps (%s lid, legs %s)", (lidPosition, style) => {
-    const r = buildBox(inputs({ lidPosition, legs: withLegs(style) }))
+  it.each(cases)("does not create new overlaps (%s lid, legs %s, %i dividers)", (lidPosition, style, dividers) => {
+    const r = buildBox(inputs({ lidPosition, dividers, legs: withLegs(style) }))
     const c = centreOfExterior(r)
     const dist = defaultExplodeDistance(r.exterior)
     const offsets = r.parts.map((p) => explodeOffset(p, c, dist))

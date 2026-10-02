@@ -14,6 +14,8 @@ const inputs = (overrides: Partial<BoxInputs> = {}): BoxInputs => ({
   hingeSide: "long",
   openLeaf: "second",
   legs: { style: "none", height: 100, diameter: 38, inset: 12, width: 76, footWidth: 38 },
+  bottomStyle: "inset",
+  dividers: 0,
   joinery: "butt",
   ...overrides,
 })

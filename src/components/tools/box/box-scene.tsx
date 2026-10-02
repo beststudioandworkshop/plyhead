@@ -11,6 +11,7 @@ import {
   centerOf,
   defaultExplodeDistance,
   explodeOffset,
+  partProgress,
   viewRadius,
   type BoxResult,
   type LidPosition,
@@ -19,9 +20,13 @@ import {
 } from "@/lib/box"
 
 const FOV_DEG = 35
+/** Length of the explode / collapse animation. */
+const EXPLODE_SECONDS = 1.1
+/** How quickly the camera glides to a new framing (higher = snappier). */
+const CAMERA_EASE = 5
 /** Default viewing direction (towards the camera from the box centre). */
 const DEFAULT_VIEW_DIR: Vec3 = [0.75, 0.55, 1]
-/** The hinge line floats this far (mm) off the lid surface so it isn't swallowed by it. */
+/** The hinge line sits this far (mm) inside the lid's inner face. */
 const HINGE_LIFT_MM = 1.5
 /** The 3D view's colours can't come from CSS tokens; see lib/box/part-colors.ts. */
 const EDGE_LIGHT = "hsl(0, 0%, 12%)"
@@ -61,12 +66,12 @@ function PartMesh({
   const group = React.useRef<Group>(null)
   const invalidate = useThree((s) => s.invalidate)
 
-  // Position follows the shared explode progress every frame (cheap, and it
-  // also places the part correctly on its first frame).
+  // Position follows the shared timeline every frame, staged per part type
+  // (cheap, and it also places the part correctly on its first frame).
   useFrame(() => {
     const g = group.current
     if (!g) return
-    const p = progress.current
+    const p = partProgress(progress.current, part.type)
     g.position.set(offset[0] * p, offset[1] * p, offset[2] * p)
   })
   React.useEffect(() => invalidate(), [offset, invalidate])
@@ -96,6 +101,11 @@ function PartMesh({
           ]}
           color={HINGE_COLOR}
           lineWidth={4}
+          // Drawn through the lid so you can always see which edge hinges.
+          depthTest={false}
+          transparent
+          opacity={0.85}
+          renderOrder={10}
         />
       ) : null}
     </group>
@@ -118,23 +128,24 @@ function Scene({ result, lidPosition, exploded, resetKey, dark }: SceneProps) {
     () => result.parts.map((p) => explodeOffset(p, boxCenter, distance)),
     [result.parts, boxCenter, distance],
   )
-  const hingeLift: Vec3 = lidPosition === "top" ? [0, HINGE_LIFT_MM, 0] : [0, 0, HINGE_LIFT_MM]
+  // The hinge is on the lid's inside face, so nudge it inward (down for a top lid, back for a front lid).
+  const hingeLift: Vec3 = lidPosition === "top" ? [0, -HINGE_LIFT_MM, 0] : [0, 0, -HINGE_LIFT_MM]
 
-  // Ease the explode progress toward its target; render on demand only while moving.
+  // Run the shared timeline toward its target; render on demand only while moving.
   useFrame((_, delta) => {
     const target = exploded ? 1 : 0
-    const diff = target - progress.current
-    if (Math.abs(diff) < 0.001) {
-      if (progress.current !== target) progress.current = target
-      return
-    }
-    progress.current += diff * Math.min(1, delta * 8)
+    const t = progress.current
+    if (t === target) return
+    const step = delta / EXPLODE_SECONDS
+    progress.current = target > t ? Math.min(target, t + step) : Math.max(target, t - step)
     invalidate()
   })
 
   const radius = viewRadius(result.bounds, exploded ? distance : 0)
   const lastResetKey = React.useRef(resetKey)
   const hasFramed = React.useRef(false)
+  /** Where the camera is gliding to, or null when it's at rest / the user is steering. */
+  const goal = React.useRef<{ pos: Vec3; target: Vec3 } | null>(null)
 
   // Re-fit the camera whenever the box changes size or moves (new legs, a
   // different lid, exploding). It keeps the angle you've orbited to; only
@@ -143,7 +154,8 @@ function Scene({ result, lidPosition, exploded, resetKey, dark }: SceneProps) {
     const { camera } = getState()
     const reset = lastResetKey.current !== resetKey
     lastResetKey.current = resetKey
-    const keepAngle = !reset && hasFramed.current
+    const wasFramed = hasFramed.current
+    const keepAngle = !reset && wasFramed
     hasFramed.current = true
 
     const target = centerOf(result.bounds)
@@ -163,20 +175,58 @@ function Scene({ result, lidPosition, exploded, resetKey, dark }: SceneProps) {
     const fit = Math.min(vFov, 2 * Math.atan(Math.tan(vFov / 2) * aspect))
     const dist = (radius / Math.sin(fit / 2)) * 1.05
     const len = Math.hypot(...dir)
-    camera.position.set(
+    const pos: Vec3 = [
       target[0] + (dir[0] / len) * dist,
       target[1] + (dir[1] / len) * dist,
       target[2] + (dir[2] / len) * dist,
-    )
+    ]
     camera.near = dist / 100
     camera.far = dist * 20
     camera.updateProjectionMatrix()
-    if (c) {
-      c.target.set(...target)
-      c.update()
+    if (!wasFramed || !c) {
+      // First frame: place the camera straight away.
+      camera.position.set(...pos)
+      c?.target.set(...target)
+      c?.update()
+      goal.current = null
+    } else {
+      goal.current = { pos, target }
     }
     invalidate()
   }, [radius, resetKey, result.bounds, getState, size.width, size.height, invalidate])
+
+  // Glide the camera to its new framing; stop the moment the user grabs the view.
+  useFrame(({ camera }, delta) => {
+    const g = goal.current
+    const c = controls.current
+    if (!g || !c) return
+    const k = 1 - Math.exp(-delta * CAMERA_EASE)
+    let remaining = 0
+    for (const a of [0, 1, 2] as const) {
+      const key = (["x", "y", "z"] as const)[a]
+      camera.position[key] += (g.pos[a] - camera.position[key]) * k
+      c.target[key] += (g.target[a] - c.target[key]) * k
+      remaining += Math.abs(g.pos[a] - camera.position[key]) + Math.abs(g.target[a] - c.target[key])
+    }
+    c.update()
+    if (remaining < radius * 0.001) {
+      camera.position.set(...g.pos)
+      c.target.set(...g.target)
+      c.update()
+      goal.current = null
+    }
+    invalidate()
+  })
+
+  React.useEffect(() => {
+    const c = controls.current
+    if (!c) return
+    const stop = () => {
+      goal.current = null
+    }
+    c.addEventListener("start", stop)
+    return () => c.removeEventListener("start", stop)
+  }, [])
 
   const edgeColor = dark ? EDGE_DARK : EDGE_LIGHT
 

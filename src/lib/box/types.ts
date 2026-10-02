@@ -29,12 +29,14 @@ export type LidType = "full" | "split" | "half"
 export type DimensionMode = "exterior" | "interior"
 export type Unit = "in" | "mm"
 export type JoineryId = "butt"
+/** Where the bottom panel sits. "inset": between the walls. "lap": under the walls, so they bear on it. */
+export type BottomStyle = "inset" | "lap"
 /** Which half of a split/half lid: "first" is the lower end of the cross axis (back, bottom or left). */
 export type LeafSide = "first" | "second"
 /** Whether the lid hinges along its long or its short edge. */
 export type HingeSide = "long" | "short"
 
-export type PartType = "side" | "front" | "back" | "top" | "bottom" | "lid" | "leg"
+export type PartType = "side" | "front" | "back" | "top" | "bottom" | "lid" | "leg" | "divider"
 
 /** Grain direction relative to the part's length. Unused in v1; reserved. */
 export type Grain = "length" | "width" | null
@@ -74,6 +76,9 @@ export interface BoxInputs {
   /** Half lid only: which leaf opens. The other is fixed. */
   openLeaf: LeafSide
   hingeSide: HingeSide
+  bottomStyle: BottomStyle
+  /** Number of internal dividers (0 to MAX_DIVIDERS). */
+  dividers: number
   legs: LegInputs
   joinery: JoineryId
 }
@@ -127,6 +132,7 @@ export type IssueCode =
   | "legs-invalid-size"
   | "legs-too-large-for-face"
   | "legs-foot-too-narrow"
+  | "dividers-no-room"
 
 export interface Issue {
   code: IssueCode

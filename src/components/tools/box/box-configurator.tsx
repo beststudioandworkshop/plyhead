@@ -9,21 +9,30 @@ import {
   DEFAULT_CLEARANCE_MM,
   DEFAULT_EXTERIOR,
   DEFAULT_JOINERY,
+  DEFAULT_KERF_MM,
   DEFAULT_LEGS,
+  JOINERY,
+  SHEET_PRESETS,
+  SPAN_SUGGEST_RATIO,
   THICKNESS_PRESETS,
   buildBox,
   formatLength,
   groupParts,
+  nestParts,
   resolveDimensions,
+  suggestDivider,
   type BoxInputs,
   type DimensionMode,
   type Dims,
+  type SheetPreset,
   type Unit,
 } from "@/lib/box"
 
 import { Controls } from "./controls"
 import { CutList } from "./cut-list"
+import { HowTo } from "./how-to"
 import { PreviewCard } from "./preview-card"
+import { SheetLayout } from "./sheet-layout"
 
 const INITIAL: BoxInputs = {
   dimensionMode: "exterior",
@@ -34,6 +43,8 @@ const INITIAL: BoxInputs = {
   lidType: "full",
   openLeaf: "second",
   hingeSide: "long",
+  bottomStyle: "inset",
+  dividers: 0,
   legs: { style: "none", ...DEFAULT_LEGS },
   joinery: DEFAULT_JOINERY,
 }
@@ -53,6 +64,8 @@ export function BoxConfigurator() {
   const [inputs, setInputs] = React.useState<BoxInputs>(INITIAL)
   const [unit, setUnit] = React.useState<Unit>("in")
   const [thicknessPreset, setThicknessPreset] = React.useState(THICKNESS_PRESETS[1].id)
+  const [sheetId, setSheetId] = React.useState<SheetPreset["id"]>("4x8")
+  const [kerfMm, setKerfMm] = React.useState(DEFAULT_KERF_MM)
 
   const patch = (p: Partial<BoxInputs>) => setInputs((prev) => ({ ...prev, ...p }))
 
@@ -81,6 +94,21 @@ export function BoxConfigurator() {
 
   const result = React.useMemo(() => buildBox(inputs), [inputs])
   const rows = React.useMemo(() => groupParts(result.parts), [result.parts])
+  const sheet = SHEET_PRESETS.find((p) => p.id === sheetId) ?? SHEET_PRESETS[0]
+  const nest = React.useMemo(() => nestParts(result.parts, sheet, kerfMm), [result.parts, sheet, kerfMm])
+  const dividerTip = React.useMemo(
+    () =>
+      suggestDivider(
+        inputs.dividers,
+        JOINERY[inputs.joinery].interiorBox(result.exterior, inputs.thickness),
+        inputs.lidPosition,
+        inputs.lidType,
+        inputs.hingeSide,
+        inputs.thickness,
+        SPAN_SUGGEST_RATIO,
+      ),
+    [inputs, result.exterior],
+  )
 
   const overall: Dims = {
     w: result.bounds.max[0] - result.bounds.min[0],
@@ -133,14 +161,21 @@ export function BoxConfigurator() {
             onInputs={patch}
             onThicknessPreset={changePreset}
             exterior={result.exterior}
+            dividerTip={result.ok ? dividerTip : null}
+            sheetId={sheetId}
+            kerfMm={kerfMm}
+            onSheet={setSheetId}
+            onKerf={setKerfMm}
             onLegs={(p) => setInputs((prev) => ({ ...prev, legs: { ...prev.legs, ...p } }))}
           />
         </CardContent>
       </Card>
 
       {result.ok ? (
-        <div className="lg:col-start-2">
+        <div className="flex flex-col gap-6 lg:col-start-2">
           <CutList rows={rows} unit={unit} />
+          <SheetLayout nest={nest} parts={result.parts} unit={unit} />
+          <HowTo inputs={inputs} unit={unit} />
         </div>
       ) : null}
     </div>

@@ -53,12 +53,12 @@ function hingeLine(b: Box, axes: LidAxes, end: "min" | "max"): HingeEdge {
   const from: Vec3 = [0, 0, 0]
   const to: Vec3 = [0, 0, 0]
   const cross = end === "min" ? b.min[axes.crossAxis] : b.max[axes.crossAxis]
-  // On the outward-facing surface of the lid.
-  const outer = b.max[axes.normalAxis]
+  // On the inside face of the lid (the underside of a top lid, the back of a front lid).
+  const inner = b.min[axes.normalAxis]
   from[axes.hingeAxis] = b.min[axes.hingeAxis]
   to[axes.hingeAxis] = b.max[axes.hingeAxis]
   from[axes.crossAxis] = to[axes.crossAxis] = cross
-  from[axes.normalAxis] = to[axes.normalAxis] = outer
+  from[axes.normalAxis] = to[axes.normalAxis] = inner
   return { edge: EDGE_NAME[axes.crossAxis][end === "min" ? 0 : 1], from, to }
 }
 

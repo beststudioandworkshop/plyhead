@@ -6,13 +6,14 @@ import type { PartType } from "./types"
  * exception to "tokens only"). Chosen to stay distinct in light and dark.
  */
 export const PART_COLORS: Record<PartType, string> = {
-  side: "hsl(210, 60%, 56%)",
-  front: "hsl(150, 45%, 46%)",
-  back: "hsl(180, 42%, 40%)",
-  top: "hsl(265, 48%, 62%)",
-  bottom: "hsl(46, 78%, 55%)",
-  lid: "hsl(24, 92%, 56%)",
-  leg: "hsl(20, 28%, 42%)",
+  side: "hsl(205, 30%, 50%)",
+  front: "hsl(150, 24%, 45%)",
+  back: "hsl(262, 20%, 56%)",
+  top: "hsl(42, 52%, 54%)",
+  bottom: "hsl(345, 30%, 54%)",
+  lid: "hsl(24, 88%, 54%)",
+  leg: "hsl(24, 30%, 34%)",
+  divider: "hsl(188, 30%, 42%)",
 }
 
 export const PART_TYPE_LABEL: Record<PartType, string> = {
@@ -23,6 +24,7 @@ export const PART_TYPE_LABEL: Record<PartType, string> = {
   bottom: "Bottom",
   lid: "Lid",
   leg: "Legs",
+  divider: "Dividers",
 }
 
 /** Hinge edge indicator. */

@@ -14,6 +14,8 @@ const inputs = (overrides: Partial<BoxInputs> = {}): BoxInputs => ({
   hingeSide: "long",
   openLeaf: "second",
   legs: { style: "none", height: 100, diameter: 38, inset: 12, width: 76, footWidth: 38 },
+  bottomStyle: "inset",
+  dividers: 0,
   joinery: "butt",
   ...overrides,
 })
@@ -365,5 +367,154 @@ describe("determinism", () => {
           expect(new Set(ids).size).toBe(ids.length)
           expect(r.parts.every((p) => p.grain === null)).toBe(true)
         }
+  })
+})
+
+describe("bottomStyle", () => {
+  const combos: [LidPosition, LidType, HingeSide, "inset" | "lap"][] = []
+  for (const lp of ["top", "front"] as const)
+    for (const lt of ["full", "split", "half"] as const)
+      for (const hs of ["long", "short"] as const)
+        for (const bs of ["inset", "lap"] as const) combos.push([lp, lt, hs, bs])
+
+  it.each(combos)("%s lid, %s, hinge %s, %s bottom: valid solid", (lidPosition, lidType, hingeSide, bottomStyle) => {
+    const r = buildBox(inputs({ lidPosition, lidType, hingeSide, bottomStyle }))
+    expect(r.ok).toBe(true)
+    // interior unchanged by the style
+    expect(r.interior.w).toBeCloseTo(W - 2 * T, 9)
+    expect(r.interior.d).toBeCloseTo(D - 2 * T, 9)
+    expect(r.interior.h).toBeCloseTo(H - 2 * T, 9)
+
+    for (const p of r.parts) {
+      const [l, h] = [lo(p), hi(p)]
+      for (let a = 0; a < 3; a++) expect(l[a]).toBeGreaterThanOrEqual(-EPS)
+      expect(h[0]).toBeLessThanOrEqual(W + EPS)
+      expect(h[1]).toBeLessThanOrEqual(H + EPS)
+      expect(h[2]).toBeLessThanOrEqual(D + EPS)
+    }
+    const parts = r.parts
+    for (let i = 0; i < parts.length; i++)
+      for (let j = i + 1; j < parts.length; j++)
+        expect(overlaps(parts[i], parts[j]), `${parts[i].id} vs ${parts[j].id}`).toBe(false)
+
+    const total = parts.reduce((s, p) => s + vol(p), 0)
+    expect(total).toBeCloseTo(W * D * H - r.interior.w * r.interior.d * r.interior.h, 0)
+    expect(r.bounds.min).toEqual([0, 0, 0])
+    expect(r.bounds.max[0]).toBeCloseTo(W, 2)
+    expect(r.bounds.max[1]).toBeCloseTo(H, 2)
+    expect(r.bounds.max[2]).toBeCloseTo(D, 2)
+  })
+
+  it("resolveDimensions ignores bottomStyle", () => {
+    expect(resolveDimensions(inputs({ bottomStyle: "lap" }))).toEqual(resolveDimensions(inputs()))
+    const i = { dimensionMode: "interior" as const, dims: { w: 300, d: 200, h: 150 } }
+    expect(resolveDimensions(inputs({ ...i, bottomStyle: "lap" }))).toEqual(resolveDimensions(inputs(i)))
+  })
+
+  it("default (inset) matches an explicit inset", () => {
+    expect(buildBox(inputs())).toEqual(buildBox(inputs({ bottomStyle: "inset" })))
+  })
+
+  describe("top lid", () => {
+    const lap = buildBox(inputs({ bottomStyle: "lap" }))
+    const inset = buildBox(inputs({ bottomStyle: "inset" }))
+    const get = (r: BoxResult, type: Part["type"]) => r.parts.filter((p) => p.type === type)
+
+    it("lap bottom is the full footprint W x D x t at y in [0, t]", () => {
+      const b = get(lap, "bottom")[0]
+      expect(b.length).toBeCloseTo(W, 6)
+      expect(b.width).toBeCloseTo(D, 6)
+      expect(b.thickness).toBeCloseTo(T, 6)
+      for (let a = 0; a < 3; a++) expect(lo(b)[a]).toBeCloseTo(0, 4)
+      expect(hi(b)[0]).toBeCloseTo(W, 4)
+      expect(hi(b)[1]).toBeCloseTo(T, 4)
+      expect(hi(b)[2]).toBeCloseTo(D, 4)
+    })
+
+    it("lap bottom is bigger than inset; sides are shorter by t", () => {
+      const lb = get(lap, "bottom")[0]
+      const ib = get(inset, "bottom")[0]
+      expect(lb.length * lb.width).toBeGreaterThan(ib.length * ib.width)
+      expect(ib.length).toBeCloseTo(W - 2 * T, 6)
+      expect(ib.width).toBeCloseTo(D - 2 * T, 6)
+      for (const s of get(lap, "side")) {
+        expect(s.length).toBeCloseTo(D, 6)
+        expect(s.width).toBeCloseTo(H - 2 * T, 6)
+        expect(lo(s)[1]).toBeCloseTo(T, 4)
+        expect(hi(s)[1]).toBeCloseTo(H - T, 4)
+      }
+      for (const s of get(inset, "side")) expect(s.width).toBeCloseTo(H - T, 6)
+      for (let i = 0; i < 2; i++)
+        expect(get(inset, "side")[i].width - get(lap, "side")[i].width).toBeCloseTo(T, 6)
+    })
+
+    it("front/back sit at y in [t, H-t] between the sides", () => {
+      for (const type of ["front", "back"] as const) {
+        const p = get(lap, type)[0]
+        expect(lo(p)[1]).toBeCloseTo(T, 4)
+        expect(hi(p)[1]).toBeCloseTo(H - T, 4)
+        expect(lo(p)[0]).toBeCloseTo(T, 4)
+        expect(hi(p)[0]).toBeCloseTo(W - T, 4)
+        expect(p.length).toBeCloseTo(W - 2 * T, 6)
+        expect(p.width).toBeCloseTo(H - 2 * T, 6)
+      }
+    })
+  })
+
+  describe("front lid", () => {
+    const lap = buildBox(inputs({ lidPosition: "front", bottomStyle: "lap" }))
+    const inset = buildBox(inputs({ lidPosition: "front", bottomStyle: "inset" }))
+    const get = (r: BoxResult, type: Part["type"]) => r.parts.filter((p) => p.type === type)
+
+    it("lap bottom is W x (D-t) x t spanning x in [0, W], z in [0, D-t]", () => {
+      const b = get(lap, "bottom")[0]
+      expect(b.length).toBeCloseTo(W, 6)
+      expect(b.width).toBeCloseTo(D - T, 6)
+      expect(b.thickness).toBeCloseTo(T, 6)
+      expect(lo(b)[0]).toBeCloseTo(0, 4)
+      expect(hi(b)[0]).toBeCloseTo(W, 4)
+      expect(lo(b)[1]).toBeCloseTo(0, 4)
+      expect(hi(b)[1]).toBeCloseTo(T, 4)
+      expect(lo(b)[2]).toBeCloseTo(0, 4)
+      expect(hi(b)[2]).toBeCloseTo(D - T, 4)
+    })
+
+    it("lap bottom is bigger than inset; sides are shorter by t; back and top as specified", () => {
+      const lb = get(lap, "bottom")[0]
+      const ib = get(inset, "bottom")[0]
+      expect(lb.length * lb.width).toBeGreaterThan(ib.length * ib.width)
+      for (const s of get(lap, "side")) {
+        expect(s.length).toBeCloseTo(D - T, 6)
+        expect(s.width).toBeCloseTo(H - T, 6)
+        expect(lo(s)[1]).toBeCloseTo(T, 4)
+        expect(hi(s)[1]).toBeCloseTo(H, 4)
+        expect(lo(s)[2]).toBeCloseTo(0, 4)
+        expect(hi(s)[2]).toBeCloseTo(D - T, 4)
+      }
+      for (const s of get(inset, "side")) expect(s.width).toBeCloseTo(H, 6)
+      const back = get(lap, "back")[0]
+      expect(lo(back)[1]).toBeCloseTo(T, 4)
+      expect(hi(back)[1]).toBeCloseTo(H, 4)
+      expect(back.width).toBeCloseTo(H - T, 6)
+      // top panel unchanged
+      expect(get(lap, "top")).toEqual(get(inset, "top"))
+    })
+
+    it("inset bottom is (W-2t) x (D-2t) in the front-lid box (regression: same as before the lap option)", () => {
+      const b = get(inset, "bottom")[0]
+      expect(b.length).toBeCloseTo(W - 2 * T, 6)
+      expect(b.width).toBeCloseTo(D - 2 * T, 6)
+    })
+  })
+
+  it("lap works with legs", () => {
+    for (const style of ["dowel", "tapered"] as const) {
+      const r = buildBox(inputs({ bottomStyle: "lap", legs: withLegs(style) }))
+      expect(r.ok).toBe(true)
+      const parts = r.parts
+      for (let i = 0; i < parts.length; i++)
+        for (let j = i + 1; j < parts.length; j++)
+          expect(overlaps(parts[i], parts[j]), `${parts[i].id} vs ${parts[j].id}`).toBe(false)
+    }
   })
 })

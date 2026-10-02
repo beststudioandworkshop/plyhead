@@ -1,5 +1,6 @@
 import { JOINERY } from "./joinery"
 import { buildLid } from "./lid"
+import { buildDividers, validateDividers } from "./dividers"
 import { buildLegParts, validateLegs } from "./legs"
 import { partFromBox, roundVec } from "./part"
 import type { Axis, Box, BoxInputs, BoxResult, Dims, Issue, Part, Vec3 } from "./types"
@@ -46,6 +47,18 @@ function validate(inputs: BoxInputs, exterior: Dims, interior: Dims): Issue[] {
     })
     return issues
   }
+  const interiorBox = JOINERY[inputs.joinery].interiorBox(exterior, inputs.thickness)
+  issues.push(
+    ...validateDividers(
+      inputs.dividers,
+      interiorBox,
+      inputs.lidPosition,
+      inputs.lidType,
+      inputs.hingeSide,
+      inputs.thickness,
+    ),
+  )
+  if (issues.length) return issues
   return validateLegs(inputs.legs, inputs.thickness, exterior)
 }
 
@@ -63,7 +76,7 @@ export function buildBox(inputs: BoxInputs): BoxResult {
   }
 
   const t = inputs.thickness
-  const layout = JOINERY[inputs.joinery].layout(exterior, t, inputs.lidPosition)
+  const layout = JOINERY[inputs.joinery].layout(exterior, t, inputs.lidPosition, inputs.bottomStyle)
   const parts: Part[] = []
 
   for (const panel of layout.carcass) {
@@ -82,6 +95,17 @@ export function buildBox(inputs: BoxInputs): BoxResult {
       ),
     )
   }
+
+  parts.push(
+    ...buildDividers(
+      inputs.dividers,
+      JOINERY[inputs.joinery].interiorBox(exterior, t),
+      inputs.lidPosition,
+      inputs.lidType,
+      inputs.hingeSide,
+      t,
+    ),
+  )
 
   parts.push(...buildLegParts(inputs.legs, t, exterior))
 

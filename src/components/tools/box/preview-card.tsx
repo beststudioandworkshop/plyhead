@@ -17,7 +17,7 @@ const BoxScene = dynamic(() => import("./box-scene"), {
   loading: () => <Skeleton className="size-full" />,
 })
 
-const LEGEND_ORDER: PartType[] = ["side", "front", "back", "top", "bottom", "lid", "leg"]
+const LEGEND_ORDER: PartType[] = ["side", "front", "back", "top", "bottom", "divider", "lid", "leg"]
 
 export function PreviewCard({ result, lidPosition }: { result: BoxResult; lidPosition: LidPosition }) {
   const { resolvedTheme } = useTheme()
@@ -75,7 +75,7 @@ export function PreviewCard({ result, lidPosition }: { result: BoxResult; lidPos
           {hasHinge ? (
             <li className="flex items-center gap-1.5">
               <span aria-hidden className="h-0.5 w-3 rounded-full" style={{ backgroundColor: HINGE_COLOR }} />
-              Hinge edge
+              Hinge (inside the lid)
             </li>
           ) : null}
         </ul>

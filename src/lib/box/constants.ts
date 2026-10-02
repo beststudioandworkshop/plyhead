@@ -13,6 +13,18 @@ export const FRACTION_DENOMINATOR = 16
 /** Lengths are rounded to this many mm decimals when parts are built. */
 export const PART_PRECISION_MM = 3
 
+/** Most dividers the tool offers. */
+export const MAX_DIVIDERS = 3
+
+/** Narrowest clear gap (mm) allowed between dividers and walls. */
+export const MIN_DIVIDER_GAP_MM = 20
+
+/**
+ * Suggest a divider when an unsupported span is longer than this many times
+ * the plywood thickness (about 22" for 3/4" ply).
+ */
+export const SPAN_SUGGEST_RATIO = 30
+
 export const DEFAULT_JOINERY: JoineryId = "butt"
 
 /**
@@ -57,3 +69,17 @@ export const DEFAULT_LEGS = {
   width: 3 * MM_PER_INCH,
   footWidth: 1.5 * MM_PER_INCH,
 }
+
+export interface SheetPreset {
+  id: "4x8" | "5x5"
+  label: string
+  /** Sheet size in mm. */
+  w: number
+  h: number
+}
+
+/** Sheet goods for nesting. 4×8 is standard plywood; 5×5 is Baltic birch. */
+export const SHEET_PRESETS: SheetPreset[] = [
+  { id: "4x8", label: "4 × 8 ft sheet", w: 48 * MM_PER_INCH, h: 96 * MM_PER_INCH },
+  { id: "5x5", label: "5 × 5 ft Baltic birch", w: 60 * MM_PER_INCH, h: 60 * MM_PER_INCH },
+]
