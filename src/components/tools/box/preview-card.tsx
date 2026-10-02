@@ -76,7 +76,7 @@ export function PreviewCard({ result, lidPosition }: { result: BoxResult; lidPos
             options={[
               { value: "solid", label: "Solid" },
               { value: "hatch", label: "Hatch" },
-              { value: "grain", label: "Plywood grain" },
+              { value: "grain", label: "Grain" },
             ]}
           />
           <Button variant="outline" size="sm" onClick={() => setResetKey((k) => k + 1)}>

@@ -2,8 +2,8 @@
 
 import * as React from "react"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
-import { Edges, Line, OrbitControls } from "@react-three/drei"
-import { Color, ExtrudeGeometry, Shape, Vector2, Vector3, type BufferGeometry, type Group, type WebGLProgramParametersWithUniforms } from "three"
+import { Edges, OrbitControls } from "@react-three/drei"
+import { Color, ExtrudeGeometry, Quaternion, Shape, Vector2, Vector3, type BufferGeometry, type Group, type WebGLProgramParametersWithUniforms } from "three"
 
 import {
   GRAIN_DARK,
@@ -62,40 +62,63 @@ function plateGeometry(part: Part): BufferGeometry {
   return geometry
 }
 
+/** Same program for every part and every look: colours and mode are uniforms, so nothing recompiles. */
+const SURFACE_PROGRAM_KEY = () => "plyhead-surface"
+
 /**
  * Patches a standard material so its colour comes from the part's own local
- * coordinates: a diagonal hatch (the part's colour striped with the shared
- * colour), or a generic plywood grain tinted toward the part's colour.
+ * coordinates: a diagonal hatch (the part's colour with a thin shared pinstripe),
+ * a generic plywood grain tinted toward the part's colour, or plain solid colour.
+ *
+ * Everything that can change (the look, the stripe scale, the part's colour and
+ * grain direction) lives in uniforms that are updated in place, so switching
+ * look or resizing the box never compiles a new shader.
  */
-function useSurface(part: Part, surface: Surface, radius: number) {
-  return React.useMemo(() => {
-    const unique = new Color(PART_COLORS[part.type])
-    const universal = new Color(UNIVERSAL_COLOR)
-    const grainLight = new Color(GRAIN_LIGHT)
-    const grainDark = new Color(GRAIN_DARK)
+class SurfaceUniforms {
+  values = {
+    uUnique: { value: new Color() },
+    uUniversal: { value: new Color(UNIVERSAL_COLOR) },
+    uGrainLight: { value: new Color(GRAIN_LIGHT) },
+    uGrainDark: { value: new Color(GRAIN_DARK) },
+    uAxis: { value: new Vector3(1, 0, 0) },
+    uPeriod: { value: 1 },
+    uFreq: { value: 1 },
+    uMode: { value: 0 },
+  }
+
+  update(part: Part, surface: Surface, radius: number) {
+    const v = this.values
+    v.uUnique.value.set(PART_COLORS[part.type])
     // Grain runs along the part's length: the longest axis of a board, local x of a plate, y of a dowel.
     const axis =
       part.shape === "cylinder"
-        ? new Vector3(0, 1, 0)
+        ? [0, 1, 0]
         : part.shape === "polygon"
-          ? new Vector3(1, 0, 0)
+          ? [1, 0, 0]
           : part.extents[0] >= part.extents[1] && part.extents[0] >= part.extents[2]
-            ? new Vector3(1, 0, 0)
+            ? [1, 0, 0]
             : part.extents[1] >= part.extents[2]
-              ? new Vector3(0, 1, 0)
-              : new Vector3(0, 0, 1)
-    const period = Math.max(radius * 0.06, 6)
-    const freq = (Math.PI * 2) / Math.max(radius * 0.03, 3)
+              ? [0, 1, 0]
+              : [0, 0, 1]
+    v.uAxis.value.set(axis[0], axis[1], axis[2])
+    v.uPeriod.value = Math.max(radius * 0.06, 6)
+    v.uFreq.value = (Math.PI * 2) / Math.max(radius * 0.03, 3)
+    v.uMode.value = surface === "grain" ? 1 : surface === "solid" ? 2 : 0
+  }
+}
 
-    const onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
-      shader.uniforms.uUnique = { value: unique }
-      shader.uniforms.uUniversal = { value: universal }
-      shader.uniforms.uGrainLight = { value: grainLight }
-      shader.uniforms.uGrainDark = { value: grainDark }
-      shader.uniforms.uAxis = { value: axis }
-      shader.uniforms.uPeriod = { value: period }
-      shader.uniforms.uFreq = { value: freq }
-      shader.uniforms.uMode = { value: surface === "grain" ? 1 : surface === "solid" ? 2 : 0 }
+function useSurface(part: Part, surface: Surface, radius: number) {
+  const invalidate = useThree((s) => s.invalidate)
+  const [uniforms] = React.useState(() => new SurfaceUniforms())
+
+  React.useEffect(() => {
+    uniforms.update(part, surface, radius)
+    invalidate()
+  }, [uniforms, part, surface, radius, invalidate])
+
+  const onBeforeCompile = React.useCallback(
+    (shader: WebGLProgramParametersWithUniforms) => {
+      Object.assign(shader.uniforms, uniforms.values)
       shader.vertexShader = shader.vertexShader
         .replace("#include <common>", "#include <common>\nvarying vec3 vObj;")
         .replace("#include <begin_vertex>", "#include <begin_vertex>\nvObj = position;")
@@ -138,9 +161,36 @@ if (uMode > 1.5) {
   diffuseColor.rgb = mix(wood, uUnique, 0.32);
 }`,
         )
+    },
+    [uniforms],
+  )
+  return { onBeforeCompile }
+}
+
+/**
+ * The hinge line as a thin bar. (A fat-line component used to live here, but it
+ * rebuilt and recompiled its shader on every toggle, which made the first few
+ * animations stutter.) Plain mesh + basic material compile once.
+ */
+function HingeBar({ from, to, thickness }: { from: Vec3; to: Vec3; thickness: number }) {
+  const { mid, length, quaternion } = React.useMemo(() => {
+    const a = new Vector3(...from)
+    const b = new Vector3(...to)
+    const dir = b.clone().sub(a)
+    const len = dir.length()
+    return {
+      mid: a.clone().add(b).multiplyScalar(0.5).toArray() as Vec3,
+      length: len,
+      quaternion: new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), dir.normalize()),
     }
-    return { onBeforeCompile, key: `${surface}` }
-  }, [part, surface, radius])
+  }, [from, to])
+  return (
+    <mesh position={mid} quaternion={quaternion} renderOrder={10}>
+      <cylinderGeometry args={[thickness, thickness, length, 12]} />
+      {/* Drawn through the lid so you can always see which edge hinges. */}
+      <meshBasicMaterial color={HINGE_COLOR} depthTest={false} transparent opacity={0.9} />
+    </mesh>
+  )
 }
 
 function PartMesh({
@@ -192,6 +242,31 @@ function PartMesh({
   React.useEffect(() => () => plate?.dispose(), [plate])
 
   const hinge = part.hinge
+  // Relative to the pivot, nudged inside the lid (stable arrays so the bar isn't rebuilt on every render).
+  const hingeFrom = React.useMemo<Vec3>(
+    () =>
+      hinge
+        ? [
+            hinge.from[0] - pivot[0] + hingeLift[0],
+            hinge.from[1] - pivot[1] + hingeLift[1],
+            hinge.from[2] - pivot[2] + hingeLift[2],
+          ]
+        : [0, 0, 0],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hinge, pivot[0], pivot[1], pivot[2], hingeLift[0], hingeLift[1], hingeLift[2]],
+  )
+  const hingeTo = React.useMemo<Vec3>(
+    () =>
+      hinge
+        ? [
+            hinge.to[0] - pivot[0] + hingeLift[0],
+            hinge.to[1] - pivot[1] + hingeLift[1],
+            hinge.to[2] - pivot[2] + hingeLift[2],
+          ]
+        : [0, 0, 0],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hinge, pivot[0], pivot[1], pivot[2], hingeLift[0], hingeLift[1], hingeLift[2]],
+  )
   return (
     <group ref={group}>
       <group ref={pivotGroup} position={pivot}>
@@ -204,38 +279,15 @@ function PartMesh({
           <boxGeometry args={part.extents} />
         )}
         <meshStandardMaterial
-          key={material.key}
           color={PART_COLORS[part.type]}
           roughness={0.75}
           metalness={0}
           onBeforeCompile={material.onBeforeCompile}
-          customProgramCacheKey={() => material.key}
+          customProgramCacheKey={SURFACE_PROGRAM_KEY}
         />
         <Edges color={edgeColor} threshold={15} />
       </mesh>
-      {hinge ? (
-        <Line
-          points={[
-            [
-              hinge.from[0] - pivot[0] + hingeLift[0],
-              hinge.from[1] - pivot[1] + hingeLift[1],
-              hinge.from[2] - pivot[2] + hingeLift[2],
-            ],
-            [
-              hinge.to[0] - pivot[0] + hingeLift[0],
-              hinge.to[1] - pivot[1] + hingeLift[1],
-              hinge.to[2] - pivot[2] + hingeLift[2],
-            ],
-          ]}
-          color={HINGE_COLOR}
-          lineWidth={4}
-          // Drawn through the lid so you can always see which edge hinges.
-          depthTest={false}
-          transparent
-          opacity={0.85}
-          renderOrder={10}
-        />
-      ) : null}
+      {hinge ? <HingeBar from={hingeFrom} to={hingeTo} thickness={Math.max(radius * 0.004, 1)} /> : null}
       </group>
     </group>
   )
