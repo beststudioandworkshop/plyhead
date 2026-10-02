@@ -5,3 +5,11 @@ export { buildBox, resolveDimensions } from "./build"
 export { legFaceOptions, type FaceOption } from "./legs"
 export { JOINERY, type Joinery } from "./joinery"
 export { rotateVec } from "./rotation"
+export {
+  groupParts,
+  formatRow,
+  cutListToCsv,
+  cutListToText,
+  type CutListRow,
+  type CutListCells,
+} from "./cutlist"

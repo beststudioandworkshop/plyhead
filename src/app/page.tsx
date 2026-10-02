@@ -16,6 +16,7 @@ export default function Home() {
           Plyhead
         </h1>
         <p className="text-muted-foreground">Site coming soon.</p>
+        <Button render={<Link href="/tools" />}>Tools</Button>
       </main>
       <Separator />
       <footer className="flex items-center justify-between px-4 py-4 text-sm text-muted-foreground sm:px-8">
