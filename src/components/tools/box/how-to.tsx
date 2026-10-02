@@ -168,6 +168,40 @@ export function HowTo({ inputs, exterior, unit }: { inputs: BoxInputs; exterior:
             </AccordionContent>
           </AccordionItem>
 
+          <AccordionItem value="finish">
+            <AccordionTrigger>Finishes</AccordionTrigger>
+            <AccordionContent className="flex flex-col gap-3">
+              <p>
+                A quick note on words: <strong>stain</strong> is color, a <strong>top coat</strong> is the
+                protector, and <strong>finish</strong> is the general term that covers both.
+              </p>
+              <ul className="list-disc pl-5">
+                <li>
+                  <strong>Paint.</strong> The forgiving choice, and it hides the plywood. Prime first (the edges
+                  drink it up) and sand lightly between coats.
+                </li>
+                <li>
+                  <strong>Water-based poly or hard wax oil</strong> for nice veneers. Watch out for pine, which
+                  yellows. Oil-based finishes add to that warm shift, so water-based poly is the safe pick if you
+                  want the wood to stay light.
+                </li>
+                <li>
+                  <strong>Paste wax</strong>, my favorite. Apply it patiently in thin coats, let it haze, then buff
+                  and wipe. The more layers you build now, the longer this thing will love you back.
+                </li>
+                <li>
+                  <strong>Stain.</strong> Skip it unless you are licensed for that kind of thing (kidding, but test
+                  on a scrap first: pine and thin veneers blotch).
+                </li>
+              </ul>
+              <p>
+                Sand before you finish, and keep finish off any surface that is going to be glued, because glue
+                won&apos;t hold on it. Let a coat harden for a few days before anyone sits on the box or stacks
+                things on it.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+
           {legs !== "none" ? (
             <AccordionItem value="legs">
               <AccordionTrigger>Fitting the legs</AccordionTrigger>

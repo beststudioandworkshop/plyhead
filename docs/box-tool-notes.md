@@ -7,8 +7,8 @@ Where things live:
 
 ## Parked for later
 
-- **Finishes.** Suggest and explain finishes (oil, poly, paint), including what to do before assembly
-  (sand, seal edges) and how finish affects glue-ups. Possibly a finish choice that tints the 3D view.
+- **Finishes** now have a section in the how-to card (paint, water-based poly or hard wax oil, paste wax,
+  a word on stain). Still open: a finish choice that tints the 3D view, and per-finish prep steps.
 - Rabbet and dado joinery (the joinery layer is built to take them).
 - Grain direction (every part already carries a `grain` field).
 - Hinge hardware and lid stays.
