@@ -12,6 +12,7 @@ import {
   DEFAULT_KERF_MM,
   DEFAULT_LEGS,
   JOINERY,
+  MAX_DIVIDERS,
   SHEET_PRESETS,
   SPAN_SUGGEST_RATIO,
   THICKNESS_PRESETS,
@@ -71,7 +72,16 @@ export function BoxConfigurator() {
   const [kerfMm, setKerfMm] = React.useState(DEFAULT_KERF_MM)
   const [rounding, setRounding] = React.useState<RoundingMode>("exact")
 
-  const patch = (p: Partial<BoxInputs>) => setInputs((prev) => ({ ...prev, ...p }))
+  const patch = (p: Partial<BoxInputs>) =>
+    setInputs((prev) => {
+      const next = { ...prev, ...p }
+      // A split lid needs a divider under its seam, so nudge an even count up to the next odd one.
+      if (next.lidType !== "full" && next.dividers > 0 && next.dividers % 2 === 0) {
+        next.dividers = Math.min(next.dividers + 1, MAX_DIVIDERS)
+        if (next.dividers % 2 === 0) next.dividers -= 1
+      }
+      return next
+    })
 
   // Switching mode keeps the same physical box: carry over the other measurement.
   const changeMode = (mode: DimensionMode) => {

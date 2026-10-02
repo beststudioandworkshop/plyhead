@@ -97,7 +97,7 @@ describe("dividerGap", () => {
 
 describe("built dividers", () => {
   const cases: [(typeof EXT), LidPosition, LidType, HingeSide, number][] = []
-  for (const d of DIMS) for (const l of LIDS) for (const t of TYPES) for (const h of SIDES) for (const n of [1, 2, 3]) cases.push([d, l, t, h, n])
+  for (const d of DIMS) for (const l of LIDS) for (const t of TYPES) for (const h of SIDES) for (const n of [1, 2, 3]) if (t === "full" || n % 2 === 1) cases.push([d, l, t, h, n])
 
   it.each(cases)("%o %s %s %s x%i: names, placement and no overlaps", (dims, lidPosition, lidType, hingeSide, n) => {
     const r = buildBox(inputs({ dims, lidPosition, lidType, hingeSide, dividers: n }))
@@ -157,6 +157,82 @@ describe("built dividers", () => {
     }
   })
 
+  it("split/half lids with an even divider count fail with dividers-need-seam", () => {
+    const evenCases: [(typeof EXT), LidPosition, LidType, HingeSide][] = []
+    for (const d of DIMS) for (const l of LIDS) for (const t of ["split", "half"] as const) for (const h of SIDES) evenCases.push([d, l, t, h])
+    for (const [dims, lidPosition, lidType, hingeSide] of evenCases) {
+      const r = buildBox(inputs({ dims, lidPosition, lidType, hingeSide, dividers: 2 }))
+      expect(r.ok).toBe(false)
+      expect(r.issues.map((i) => i.code)).toEqual(["dividers-need-seam"])
+      expect(r.parts).toEqual([])
+    }
+  })
+
+  it("full lids with 2 dividers build and have none on the exact centre", () => {
+    for (const dims of DIMS)
+      for (const lidPosition of LIDS)
+        for (const hingeSide of SIDES) {
+          const r = buildBox(inputs({ dims, lidPosition, lidType: "full", hingeSide, dividers: 2 }))
+          expect(r.ok).toBe(true)
+          const divs = r.parts.filter((p) => p.type === "divider")
+          expect(divs).toHaveLength(2)
+          const axis = expectedAxis(dims, lidPosition, "full")
+          const ib = interiorOf(dims)
+          const mid = (ib.min[axis] + ib.max[axis]) / 2
+          for (const p of divs) {
+            expect(Math.abs(p.center[axis] - mid)).toBeGreaterThan(1)
+            // neither divider straddles the centre either
+            expect(lo(p)[axis] < mid && hi(p)[axis] > mid).toBe(false)
+          }
+          // symmetric about the centre
+          expect(divs[0].center[axis] + divs[1].center[axis]).toBeCloseTo(2 * mid, 6)
+        }
+  })
+
+  describe("split/half seam support", () => {
+    const seamCases: [(typeof EXT), LidPosition, LidType, HingeSide, number][] = []
+    for (const d of DIMS) for (const l of LIDS) for (const t of ["split", "half"] as const) for (const h of SIDES) for (const n of [1, 3]) seamCases.push([d, l, t, h, n])
+
+    it.each(seamCases)("%o %s %s %s x%i: one divider centred on the seam, others symmetric", (dims, lidPosition, lidType, hingeSide, n) => {
+      const r = buildBox(inputs({ dims, lidPosition, lidType, hingeSide, dividers: n }))
+      expect(r.ok).toBe(true)
+      const divs = r.parts.filter((p) => p.type === "divider")
+      expect(divs).toHaveLength(n)
+      const seamX = dims.w / 2
+      const centred = divs.filter((p) => Math.abs(p.center[0] - seamX) <= 1e-6)
+      expect(centred).toHaveLength(1)
+      if (n === 3) {
+        const xs = divs.map((p) => p.center[0]).sort((a, b) => a - b)
+        expect(xs[1]).toBeCloseTo(seamX, 6)
+        expect(xs[1] - xs[0]).toBeCloseTo(xs[2] - xs[1], 6)
+        expect(xs[0] + xs[2]).toBeCloseTo(2 * seamX, 6)
+        const [a, b, c] = [...divs].sort((p, q) => p.center[0] - q.center[0])
+        const g1 = lo(b)[0] - hi(a)[0]
+        const g2 = lo(c)[0] - hi(b)[0]
+        expect(g1).toBeCloseTo(g2, 6)
+        expect(g1).toBeGreaterThan(0)
+      }
+    })
+
+    it.each(seamCases)("%o %s %s %s x%i: divider top face touches the lid underside", (dims, lidPosition, lidType, hingeSide, n) => {
+      const r = buildBox(inputs({ dims, lidPosition, lidType, hingeSide, dividers: n }))
+      expect(r.ok).toBe(true)
+      const divs = r.parts.filter((p) => p.type === "divider")
+      const seamDiv = divs.find((p) => Math.abs(p.center[0] - dims.w / 2) <= 1e-6)!
+      const lids = r.parts.filter((p) => p.type === "lid")
+      expect(lids.length).toBeGreaterThan(0)
+      const a = lidPosition === "top" ? 1 : 2
+      const limit = (lidPosition === "top" ? dims.h : dims.d) - T
+      expect(hi(seamDiv)[a]).toBeCloseTo(limit, 6)
+      // both leaves bear on it: their underside is at the same plane and they span the seam
+      for (const lid of lids) {
+        expect(lo(lid)[a]).toBeCloseTo(hi(seamDiv)[a], 6)
+        const touchesX = lo(lid)[0] <= dims.w / 2 + 1e-6 && hi(lid)[0] >= dims.w / 2 - 1e-6
+        expect(touchesX, lid.id).toBe(true)
+      }
+    })
+  })
+
   it("dividers do not change the carcass or the bounds", () => {
     const plain = buildBox(inputs())
     const withDiv = buildBox(inputs({ dividers: 3 }))
@@ -209,12 +285,42 @@ describe("validateDividers / no room", () => {
   })
 
   it("gap exactly at the minimum is allowed, just below is not", () => {
-    const n = 2
+    const n = 3
     const span = (n + 1) * MIN_DIVIDER_GAP_MM + n * T
     const mk = (s: number) => interiorOf({ w: s + 2 * T, d: 1000, h: 1000 })
     // split lid: divider axis is x
     expect(validateDividers(n, mk(span), "top", "split", T)).toEqual([])
     expect(validateDividers(n, mk(span - 0.01), "top", "split", T)[0]?.code).toBe("dividers-no-room")
+  })
+
+  it.each(LIDS.flatMap((l) => (["split", "half"] as const).map((t) => [l, t] as const)))(
+    "even counts on a %s %s lid give dividers-need-seam",
+    (lid, type) => {
+      for (const n of [2]) {
+        const issues = validateDividers(n, ib, lid, type, T)
+        expect(issues).toHaveLength(1)
+        expect(issues[0].code).toBe("dividers-need-seam")
+        expect(issues[0].field).toBe("dividers")
+      }
+      for (const n of [1, 3]) expect(validateDividers(n, ib, lid, type, T)).toEqual([])
+    },
+  )
+
+  it("dividers-need-seam is checked before dividers-no-room", () => {
+    const narrow = interiorOf({ w: 2 * T + 30, d: 400, h: 300 })
+    for (const lid of LIDS)
+      for (const type of ["split", "half"] as const) {
+        expect(validateDividers(2, narrow, lid, type, T).map((i) => i.code)).toEqual(["dividers-need-seam"])
+        expect(validateDividers(3, narrow, lid, type, T).map((i) => i.code)).toEqual(["dividers-no-room"])
+      }
+    const r = buildBox(inputs({ dims: { w: 2 * T + 30, d: 400, h: 300 }, lidType: "split", dividers: 2 }))
+    expect(r.ok).toBe(false)
+    expect(r.issues.map((i) => i.code)).toEqual(["dividers-need-seam"])
+    expect(r.parts).toEqual([])
+  })
+
+  it("full lids accept any count 0..3 including 2", () => {
+    for (const n of [0, 1, 2, 3]) expect(validateDividers(n, ib, "top", "full", T)).toEqual([])
   })
 
   it("buildBox fails with ok:false, the code and no parts", () => {

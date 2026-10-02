@@ -133,6 +133,7 @@ export type IssueCode =
   | "legs-too-large-for-face"
   | "legs-foot-too-narrow"
   | "dividers-no-room"
+  | "dividers-need-seam"
 
 export interface Issue {
   code: IssueCode

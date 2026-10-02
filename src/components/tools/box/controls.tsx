@@ -285,17 +285,25 @@ export function Controls({
           label="Number of dividers"
           value={String(inputs.dividers)}
           onChange={(v) => onInputs({ dividers: Number(v) })}
-          options={Array.from({ length: MAX_DIVIDERS + 1 }, (_, n) => ({
-            value: String(n),
-            label: n === 0 ? "None" : String(n),
-          }))}
+          options={Array.from({ length: MAX_DIVIDERS + 1 }, (_, n) => {
+            // A split lid needs a divider under its seam, which only odd counts give.
+            const noSeam = inputs.lidType !== "full" && n > 0 && n % 2 === 0
+            return {
+              value: String(n),
+              label: n === 0 ? "None" : String(n),
+              disabled: noSeam,
+              title: noSeam ? "A split lid needs a divider under the seam: use 1 or 3" : undefined,
+            }
+          })}
         />
         <FieldDescription>
           {dividerTip === "seam"
             ? "Tip: a divider under the seam gives both lid halves something to rest on."
             : dividerTip === "span"
               ? "Tip: this is a long span. A divider keeps the bottom and lid from sagging."
-              : "Panels that split the inside. They never block the opening."}
+              : inputs.lidType !== "full" && inputs.dividers > 0
+                ? "One divider sits right under the lid seam, so both halves rest on it."
+                : "Panels that split the inside. They never block the opening."}
         </FieldDescription>
       </Field>
 

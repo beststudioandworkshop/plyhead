@@ -7,7 +7,8 @@ import type { Axis, Box, Issue, LidPosition, LidType, Part, Vec3 } from "./types
 
  * Dividers are upright panels inside the box. They always lie in a plane that contains the opening
  * direction, so they never block access.
- *  - Split / half lid: the divider sits under the seam, so both leaves rest on it.
+ *  - Split / half lid: one divider always sits under the seam so both leaves rest on it
+ *    (so only odd counts are allowed: 1 or 3, evenly spaced, the middle one on the seam).
  *  - Full lid: dividers run across the longer span of the opening.
  * With more than one, they're spaced to leave equal clear gaps.
  */
@@ -38,6 +39,16 @@ export function validateDividers(
   t: number,
 ): Issue[] {
   if (count <= 0) return []
+  // Evenly spaced dividers only land on the seam when there's an odd number of them.
+  if (lidType !== "full" && count % 2 === 0) {
+    return [
+      {
+        code: "dividers-need-seam",
+        message: "A split lid needs a divider under the seam, so use 1 or 3 dividers.",
+        field: "dividers",
+      },
+    ]
+  }
   const axis = dividerAxis(interior, lid, lidType)
   if (dividerGap(size(interior)[axis], count, t) < MIN_DIVIDER_GAP_MM) {
     return [

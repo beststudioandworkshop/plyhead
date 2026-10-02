@@ -69,7 +69,7 @@ describe("explodeOffset", () => {
   for (const lidPosition of LID_POSITIONS) {
     for (const lidType of LID_TYPES) {
       for (const style of LEG_STYLES) {
-       for (const dividers of [0, 2]) {
+       for (const dividers of lidType === "full" ? [0, 2] : [0, 1, 3]) {
         const label = `lid ${lidPosition}/${lidType}, legs ${style}, dividers ${dividers}`
         const result = buildBox(inputs({ lidPosition, lidType, dividers, legs: withLegs(style) }))
 
