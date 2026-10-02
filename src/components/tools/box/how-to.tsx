@@ -43,7 +43,7 @@ export function HowTo({ inputs, exterior, unit }: { inputs: BoxInputs; exterior:
   const legs = inputs.legs.style
 
   return (
-    <Card>
+    <Card className="card-tone tone-red">
       <CardHeader>
         <CardTitle>How to put it together</CardTitle>
         <CardDescription>

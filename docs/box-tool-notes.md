@@ -15,6 +15,10 @@ Where things live:
 
 ## Shop settings (Will's to fill in)
 
+Pricing, the cut-kit offer and the request email are built but **switched off**: set `SHOW_ORDERING` to `true` in
+`src/config/shop.ts` to show the "Build it" card. Until then the page shows the hardware and tools list, the
+how-to, and a share link.
+
 - `src/config/shop.ts` holds the shop name, the example prices (`PRICES`), and the cut-kit rates (`KIT_RATES`).
   All numbers there are placeholders. Replace them, then set `placeholderPrices` to `false`.
 - Build requests are emailed to `NEXT_PUBLIC_QUOTE_EMAIL` (set it in Vercel, then redeploy). Until it's set, the

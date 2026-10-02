@@ -34,6 +34,13 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-tone-tangerine: var(--tone-tangerine);
+  --color-tone-sky: var(--tone-sky);
+  --color-tone-tea: var(--tone-tea);
+  --color-tone-mustard: var(--tone-mustard);
+  --color-tone-lavender: var(--tone-lavender);
+  --color-tone-pink: var(--tone-pink);
+  --color-tone-red: var(--tone-red);
   --color-entry: var(--entry);
   --color-entry-foreground: var(--entry-foreground);
   --color-entry-soft: var(--entry-soft);
@@ -59,6 +66,14 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
   --primary: oklch(0.205 0 0);
+  /* Card tones: a light touch of a different palette colour per card. */
+  --tone-tangerine: #ed773c;
+  --tone-sky: #9ed6df;
+  --tone-tea: #245e55;
+  --tone-mustard: #eac119;
+  --tone-lavender: #808bc5;
+  --tone-pink: #eaa7c7;
+  --tone-red: #c63f3e;
   /* Entry accent: marks where the user types or picks. Orange. */
   --entry: oklch(0.7 0.18 50);
   --entry-foreground: oklch(0.2 0.03 50);
@@ -98,6 +113,8 @@
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.922 0 0);
+  --tone-tea: #3f8f80;
+  --tone-red: #e05a58;
   --entry: oklch(0.75 0.17 55);
   --entry-foreground: oklch(0.2 0.03 50);
   --entry-soft: oklch(0.27 0.06 50);
@@ -138,39 +155,26 @@
     @apply font-sans;
   }
 }
-/* Entry accent: inputs, selects and chosen options carry it as a diagonal hatch.
-   `.entry-zone` is a whole panel (with a hatched strip along its top edge);
-   `.entry-fields` just styles the fields inside something else, like a dialog.
-   Deliberately outside any @layer so it wins over the kit's utility classes. */
-.entry-zone,
-.entry-fields {
-  --entry-hatch: repeating-linear-gradient(
-    -45deg,
-    var(--entry) 0 6px,
-    color-mix(in oklab, var(--entry) 70%, white) 6px 12px
-  );
-  --entry-hatch-soft: repeating-linear-gradient(
-    -45deg,
-    var(--entry-soft) 0 6px,
-    color-mix(in oklab, var(--entry-soft) 88%, var(--entry)) 6px 12px
-  );
+/* Card tones: a thin band of one palette colour along a card's top edge.
+   Add `card-tone tone-<name>` to a Card. Outside any @layer so it wins. */
+.card-tone {
+  border-top: 3px solid var(--tone, var(--border));
 }
-.entry-zone {
-  position: relative;
-  overflow: hidden;
-}
-.entry-zone::before {
-  content: "";
-  position: absolute;
-  inset-inline: 0;
-  top: 0;
-  height: 0.75rem;
-  background-image: var(--entry-hatch);
-}
+.tone-tangerine { --tone: var(--tone-tangerine); }
+.tone-sky { --tone: var(--tone-sky); }
+.tone-tea { --tone: var(--tone-tea); }
+.tone-mustard { --tone: var(--tone-mustard); }
+.tone-lavender { --tone: var(--tone-lavender); }
+.tone-pink { --tone: var(--tone-pink); }
+.tone-red { --tone: var(--tone-red); }
+
+/* Entry accent: where the user types or picks. Inputs, selects and chosen
+   options are plain soft orange (no hatch). `.entry-zone` is a whole panel;
+   `.entry-fields` styles fields inside something else, like a dialog.
+   Outside any @layer so it wins over the kit's utility classes. */
 :is(.entry-zone, .entry-fields) :is([data-slot="input"], [data-slot="select-trigger"], [data-slot="textarea"]) {
   border-color: var(--entry);
   background-color: var(--entry-soft);
-  background-image: var(--entry-hatch-soft);
 }
 :is(.entry-zone, .entry-fields) :is([data-slot="input"], [data-slot="select-trigger"], [data-slot="textarea"]):focus-visible {
   border-color: var(--entry);
@@ -179,7 +183,6 @@
 :is(.entry-zone, .entry-fields) [data-slot="toggle-group-item"][aria-pressed="true"],
 :is(.entry-zone, .entry-fields) [data-slot="toggle-group-item"][data-pressed] {
   background-color: var(--entry);
-  background-image: var(--entry-hatch);
   color: var(--entry-foreground);
   font-weight: 600;
 }

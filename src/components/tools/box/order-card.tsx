@@ -108,7 +108,7 @@ export function OrderCard({
     setContact((c) => ({ ...c, [key]: e.target.value }))
 
   return (
-    <Card>
+    <Card className="card-tone">
       <CardHeader>
         <CardTitle>Build it</CardTitle>
         <CardDescription>

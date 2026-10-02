@@ -39,7 +39,7 @@ export function CutList({ rows, unit, rounded }: { rows: CutListRow[]; unit: Uni
   }
 
   return (
-    <Card>
+    <Card className="card-tone tone-mustard">
       <CardHeader>
         <CardTitle>Cut list</CardTitle>
         <CardDescription>

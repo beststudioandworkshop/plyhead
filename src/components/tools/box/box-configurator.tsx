@@ -30,6 +30,7 @@ import {
   screwAdvice,
   screwCount,
   suggestDivider,
+  toolsList,
   type BoxInputs,
   type DimensionMode,
   type Dims,
@@ -40,12 +41,13 @@ import {
   type Unit,
 } from "@/lib/box"
 
-import { KIT_INCLUDES_HARDWARE, KIT_RATES, PRICES } from "@/config/shop"
+import { KIT_INCLUDES_HARDWARE, KIT_RATES, PRICES, SHOW_ORDERING } from "@/config/shop"
 import { Controls } from "./controls"
 import { CutList } from "./cut-list"
 import { HardwareList } from "./hardware-list"
 import { HowTo } from "./how-to"
 import { OrderCard } from "./order-card"
+import { ShareCard } from "./share-card"
 import { PreviewCard } from "./preview-card"
 import { SheetLayout } from "./sheet-layout"
 
@@ -128,6 +130,7 @@ export function BoxConfigurator({ initial }: { initial?: ShareState }) {
   const sheet = SHEET_PRESETS.find((p) => p.id === sheetId) ?? SHEET_PRESETS[0]
   const nest = React.useMemo(() => nestParts(cutParts, sheet, kerfMm, { firstCut }), [cutParts, sheet, kerfMm, firstCut])
   const hardware = React.useMemo(() => hardwareList(inputs, result, unit), [inputs, result, unit])
+  const tools = React.useMemo(() => toolsList(inputs, result, unit), [inputs, result, unit])
   const sheetPartCount = nest.sheets.reduce((n, sh) => n + sh.placements.length, 0)
   const jointLengthMm = estimateJointLength(result.exterior, inputs.lidPosition, inputs.dividers)
   const diy = React.useMemo(
@@ -174,7 +177,7 @@ export function BoxConfigurator({ initial }: { initial?: ShareState }) {
     <div className="grid gap-6 lg:grid-cols-[26rem_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr] lg:items-start">
       <PreviewCard result={result} lidPosition={inputs.lidPosition} />
 
-      <Card className="lg:col-start-2">
+      <Card className="card-tone tone-tea lg:col-start-2">
         <CardHeader>
           <CardTitle>Your box</CardTitle>
           <CardDescription>The finished sizes, from your settings.</CardDescription>
@@ -202,7 +205,7 @@ export function BoxConfigurator({ initial }: { initial?: ShareState }) {
         </CardContent>
       </Card>
 
-      <Card className="entry-zone lg:col-start-1 lg:row-span-3 lg:row-start-1">
+      <Card className="entry-zone card-tone tone-tangerine lg:col-start-1 lg:row-span-3 lg:row-start-1">
         <CardHeader>
           <CardTitle>Settings</CardTitle>
         </CardHeader>
@@ -232,15 +235,19 @@ export function BoxConfigurator({ initial }: { initial?: ShareState }) {
         <div className="flex flex-col gap-6 lg:col-start-2">
           <CutList rows={rows} unit={unit} rounded={rounding === "easier"} />
           <SheetLayout nest={nest} parts={cutParts} unit={unit} />
-          <HardwareList items={hardware} />
-          <OrderCard
-            diy={diy}
-            kit={kit}
-            state={shareState}
-            exterior={result.exterior}
-            interior={result.interior}
-            unit={unit}
-          />
+          <HardwareList items={hardware} tools={tools} />
+          {SHOW_ORDERING ? (
+            <OrderCard
+              diy={diy}
+              kit={kit}
+              state={shareState}
+              exterior={result.exterior}
+              interior={result.interior}
+              unit={unit}
+            />
+          ) : (
+            <ShareCard state={shareState} />
+          )}
           <HowTo inputs={inputs} exterior={result.exterior} unit={unit} />
         </div>
       ) : null}

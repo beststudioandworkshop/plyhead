@@ -160,7 +160,7 @@ export function SheetLayout({ nest, parts, unit }: { nest: NestResult; parts: Pa
   const hasPolygons = parts.some((p) => p.shape === "polygon")
 
   return (
-    <Card>
+    <Card className="card-tone tone-lavender">
       <CardHeader>
         <CardTitle>Sheet layout</CardTitle>
         <CardDescription>

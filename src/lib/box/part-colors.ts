@@ -19,8 +19,8 @@ export const PART_COLORS: Record<PartType, string> = {
 }
 
 /**
- * The 3D surface is a diagonal hatch: each part's own colour above, striped
- * with this one colour that every part shares (seashell).
+ * The 3D hatch is each part's own colour with a thin diagonal pinstripe in this
+ * one colour that every part shares (seashell).
  */
 export const UNIVERSAL_COLOR = "#EAE4DA"
 
@@ -30,7 +30,7 @@ export const GRAIN_DARK = "#B98D58"
 
 /** A small CSS swatch with the same hatch the 3D view uses (for legends). */
 export const hatchSwatch = (color: string) =>
-  `repeating-linear-gradient(-45deg, ${color} 0 3px, ${UNIVERSAL_COLOR} 3px 6px)`
+  `repeating-linear-gradient(-45deg, ${color} 0 5px, ${UNIVERSAL_COLOR} 5px 6px)`
 
 export const PART_TYPE_LABEL: Record<PartType, string> = {
   side: "Sides",

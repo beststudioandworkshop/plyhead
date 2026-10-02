@@ -35,7 +35,7 @@ const HINGE_LIFT_MM = 1.5
 const EDGE_LIGHT = "hsl(0, 0%, 12%)"
 const EDGE_DARK = "hsl(0, 0%, 90%)"
 
-export type Surface = "hatch" | "grain"
+export type Surface = "solid" | "hatch" | "grain"
 
 interface SceneProps {
   surface: Surface
@@ -78,7 +78,7 @@ function useSurface(part: Part, surface: Surface, radius: number) {
             : part.extents[1] >= part.extents[2]
               ? new Vector3(0, 1, 0)
               : new Vector3(0, 0, 1)
-    const period = Math.max(radius * 0.05, 5)
+    const period = Math.max(radius * 0.06, 6)
     const freq = (Math.PI * 2) / Math.max(radius * 0.03, 3)
 
     const onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
@@ -89,7 +89,7 @@ function useSurface(part: Part, surface: Surface, radius: number) {
       shader.uniforms.uAxis = { value: axis }
       shader.uniforms.uPeriod = { value: period }
       shader.uniforms.uFreq = { value: freq }
-      shader.uniforms.uGrain = { value: surface === "grain" ? 1 : 0 }
+      shader.uniforms.uMode = { value: surface === "grain" ? 1 : surface === "solid" ? 2 : 0 }
       shader.vertexShader = shader.vertexShader
         .replace("#include <common>", "#include <common>\nvarying vec3 vObj;")
         .replace("#include <begin_vertex>", "#include <begin_vertex>\nvObj = position;")
@@ -105,19 +105,22 @@ uniform vec3 uGrainDark;
 uniform vec3 uAxis;
 uniform float uPeriod;
 uniform float uFreq;
-uniform float uGrain;`,
+uniform float uMode;`,
         )
         .replace(
           "#include <color_fragment>",
           `#include <color_fragment>
-if (uGrain < 0.5) {
+if (uMode > 1.5) {
+  diffuseColor.rgb = uUnique;
+} else if (uMode < 0.5) {
   // Anti-aliased stripes: a triangle wave smoothed by how fast it changes on screen,
   // so they blur to an even mix instead of moiré when seen at a shallow angle.
   float t = (vObj.x + vObj.y + vObj.z) / uPeriod;
   float tri = abs(fract(t) * 2.0 - 1.0);
   float w = fwidth(t) * 2.0;
-  float stripe = smoothstep(0.5 - w, 0.5 + w, tri);
-  diffuseColor.rgb = mix(uUniversal, uUnique, stripe);
+  // A thin shared-colour pinstripe on the part's own colour, so the colour still leads.
+  float band = smoothstep(0.9 - w, 0.9 + w, tri);
+  diffuseColor.rgb = mix(uUnique, uUniversal, band * 0.5);
 } else {
   float along = dot(vObj, uAxis);
   vec3 across = vObj - along * uAxis;

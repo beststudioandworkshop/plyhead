@@ -31,7 +31,7 @@ export function PreviewCard({ result, lidPosition }: { result: BoxResult; lidPos
   const hasHinge = result.parts.some((p) => p.hinge)
 
   return (
-    <Card className="lg:col-start-2">
+    <Card className="card-tone tone-sky lg:col-start-2">
       <CardHeader>
         <CardTitle>3D preview</CardTitle>
         <CardDescription>Drag to rotate. Scroll or pinch to zoom.</CardDescription>
@@ -66,6 +66,7 @@ export function PreviewCard({ result, lidPosition }: { result: BoxResult; lidPos
             value={surface}
             onChange={setSurface}
             options={[
+              { value: "solid", label: "Solid" },
               { value: "hatch", label: "Hatch" },
               { value: "grain", label: "Plywood grain" },
             ]}

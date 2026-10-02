@@ -22,6 +22,12 @@ export const SHOP = {
   placeholderPrices: true,
 } as const
 
+/**
+ * Pricing, the cut-kit offer and the "Request this kit" email are built but
+ * switched off for now. Set this to true to show the "Build it" card.
+ */
+export const SHOW_ORDERING = false
+
 /** What it costs to buy the parts yourself (example prices). */
 export const PRICES: PriceBook = {
   sheet: { "4x8": 85, "5x5": 95 },
