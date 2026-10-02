@@ -27,3 +27,4 @@ export { nestParts, nestableParts, type Placement, type NestedSheet, type NestRe
 export { buildDxf, layerName, SHEET_LAYER, type DxfOptions } from "./dxf"
 export { dividerAxis, dividerGap, suggestDivider } from "./dividers"
 export { screwAdvice, SCREW_BITE_MM, type ScrewAdvice } from "./screws"
+export { roundParts, roundingStep, type RoundingMode } from "./rounding"

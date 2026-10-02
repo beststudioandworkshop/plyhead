@@ -54,7 +54,6 @@ function validate(inputs: BoxInputs, exterior: Dims, interior: Dims): Issue[] {
       interiorBox,
       inputs.lidPosition,
       inputs.lidType,
-      inputs.hingeSide,
       inputs.thickness,
     ),
   )
@@ -102,7 +101,6 @@ export function buildBox(inputs: BoxInputs): BoxResult {
       JOINERY[inputs.joinery].interiorBox(exterior, t),
       inputs.lidPosition,
       inputs.lidType,
-      inputs.hingeSide,
       t,
     ),
   )

@@ -71,13 +71,21 @@ function splitAcross(slab: Box, axis: Axis, gap: number): [Box, Box] {
   return [first, second]
 }
 
+/** Split and half lids always divide across the width: a left leaf and a right leaf. */
+export const SPLIT_AXIS: Axis = 0
+
 /**
- * Divide the lid slab into lid panels.
- *  - full:  one panel, hinged on the min end of the cross axis
- *           (back for a top lid, bottom for a front lid, left for a vertical hinge).
- *  - split: two equal leaves split across the hinge direction; each hinges on its outer edge.
- *  - half:  same split; `openLeaf` (first = lower end of the cross axis) opens
- *           and has the hinge; the other leaf is fixed and has none.
+ * Divide the lid slab into lid panels. How the lid divides never depends on
+ * the hinge side; the hinge side only chooses which edge the hinge is on.
+ *  - full:  one panel hinged on the lid edge picked by `hingeSide`
+ *           (the min end of the cross axis: back for a top lid, bottom for a front lid,
+ *           left for a hinge that runs vertically).
+ *  - split: left and right leaves meeting at the middle.
+ *  - half:  same two leaves; `openLeaf` ("first" = left) opens, the other is fixed
+ *           and has no hinge.
+ * Hinge placement for the leaves:
+ *  - hinge runs across the lid along x (cross axis is z or y): both leaves hinge on that same edge;
+ *  - hinge runs the other way (cross axis is x): each leaf hinges on its outer edge (left / right).
  */
 export function buildLid(
   slab: Box,
@@ -98,12 +106,16 @@ export function buildLid(
     return [{ id: "lid", name: "Lid", box: slab, hinge: hingeLine(slab, axes, "min") }]
   }
 
-  const [first, second] = splitAcross(slab, axes.crossAxis, type === "split" ? gap : 0)
+  const [first, second] = splitAcross(slab, SPLIT_AXIS, type === "split" ? gap : 0)
+  // Outer edges when the hinge runs along the seam; otherwise the shared edge.
+  const sharedEdge = axes.crossAxis !== SPLIT_AXIS
+  const firstEnd = "min"
+  const secondEnd = sharedEdge ? "min" : "max"
 
   if (type === "split") {
     return [
-      { id: "lid-first", name: "Lid leaf", box: first, hinge: hingeLine(first, axes, "min") },
-      { id: "lid-second", name: "Lid leaf", box: second, hinge: hingeLine(second, axes, "max") },
+      { id: "lid-first", name: "Lid leaf", box: first, hinge: hingeLine(first, axes, firstEnd) },
+      { id: "lid-second", name: "Lid leaf", box: second, hinge: hingeLine(second, axes, secondEnd) },
     ]
   }
 
@@ -113,13 +125,13 @@ export function buildLid(
       id: "lid-first",
       name: firstOpens ? "Lid (opening half)" : "Lid (fixed half)",
       box: first,
-      hinge: firstOpens ? hingeLine(first, axes, "min") : undefined,
+      hinge: firstOpens ? hingeLine(first, axes, firstEnd) : undefined,
     },
     {
       id: "lid-second",
       name: firstOpens ? "Lid (fixed half)" : "Lid (opening half)",
       box: second,
-      hinge: firstOpens ? undefined : hingeLine(second, axes, "max"),
+      hinge: firstOpens ? undefined : hingeLine(second, axes, secondEnd),
     },
   ]
 }

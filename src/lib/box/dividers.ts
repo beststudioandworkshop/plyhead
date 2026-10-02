@@ -1,11 +1,11 @@
 import { MIN_DIVIDER_GAP_MM } from "./constants"
-import { lidAxes } from "./lid"
+import { SPLIT_AXIS } from "./lid"
 import { partFromBox } from "./part"
-import type { Axis, Box, HingeSide, Issue, LidPosition, LidType, Part, Vec3 } from "./types"
+import type { Axis, Box, Issue, LidPosition, LidType, Part, Vec3 } from "./types"
 
 /**
- * Dividers are vertical (or, for a front-lid box, optionally horizontal) panels
- * inside the box. They always lie in a plane that contains the opening
+
+ * Dividers are upright panels inside the box. They always lie in a plane that contains the opening
  * direction, so they never block access.
  *  - Split / half lid: the divider sits under the seam, so both leaves rest on it.
  *  - Full lid: dividers run across the longer span of the opening.
@@ -19,10 +19,10 @@ export function dividerAxis(
   interior: Box,
   lid: LidPosition,
   lidType: LidType,
-  hingeSide: HingeSide,
 ): Axis {
+  // Split and half lids divide across the width, so the divider goes under that seam.
+  if (lidType !== "full") return SPLIT_AXIS
   const s = size(interior)
-  if (lidType !== "full") return lidAxes(s, lid, hingeSide).crossAxis
   const [a, b]: [Axis, Axis] = lid === "top" ? [0, 2] : [0, 1]
   return s[a] >= s[b] ? a : b
 }
@@ -35,11 +35,10 @@ export function validateDividers(
   interior: Box,
   lid: LidPosition,
   lidType: LidType,
-  hingeSide: HingeSide,
   t: number,
 ): Issue[] {
   if (count <= 0) return []
-  const axis = dividerAxis(interior, lid, lidType, hingeSide)
+  const axis = dividerAxis(interior, lid, lidType)
   if (dividerGap(size(interior)[axis], count, t) < MIN_DIVIDER_GAP_MM) {
     return [
       {
@@ -57,11 +56,10 @@ export function buildDividers(
   interior: Box,
   lid: LidPosition,
   lidType: LidType,
-  hingeSide: HingeSide,
   t: number,
 ): Part[] {
   if (count <= 0) return []
-  const axis = dividerAxis(interior, lid, lidType, hingeSide)
+  const axis = dividerAxis(interior, lid, lidType)
   const gap = dividerGap(size(interior)[axis], count, t)
   const parts: Part[] = []
   for (let i = 1; i <= count; i++) {
@@ -83,7 +81,6 @@ export function suggestDivider(
   interior: Box,
   lid: LidPosition,
   lidType: LidType,
-  hingeSide: HingeSide,
   t: number,
   spanRatio: number,
 ): "seam" | "span" | null {

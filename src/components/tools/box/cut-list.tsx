@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/table"
 import { cutListToCsv, cutListToText, formatRow, type CutListRow, type Unit } from "@/lib/box"
 
-export function CutList({ rows, unit }: { rows: CutListRow[]; unit: Unit }) {
+export function CutList({ rows, unit, rounded }: { rows: CutListRow[]; unit: Unit; rounded: boolean }) {
   const total = rows.reduce((n, r) => n + r.quantity, 0)
 
   const copy = async () => {
@@ -44,7 +44,14 @@ export function CutList({ rows, unit }: { rows: CutListRow[]; unit: Unit }) {
         <CardTitle>Cut list</CardTitle>
         <CardDescription>
           {total} pieces. Sizes are length × width × thickness
-          {unit === "in" ? ', rounded to the nearest 1/16"' : ""}.
+          {rounded
+            ? unit === "in"
+              ? ', rounded to the nearest 1/8"'
+              : ", rounded to the nearest mm"
+            : unit === "in"
+              ? ', shown to the nearest 1/16"'
+              : ""}
+          .
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">

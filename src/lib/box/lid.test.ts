@@ -172,7 +172,12 @@ describe.each(CASES)("$label", ({ dims, lid, axes }) => {
 
   describe.each(SIDES)("hingeSide %s", (hingeSide) => {
     const { hinge: hingeAxis, cross: crossAxis } = axes[hingeSide]
-    const mid = (slabMin[crossAxis] + slabMax[crossAxis]) / 2
+    // Leaves always divide across the width (x), whatever the hinge side.
+    const mid = (slabMin[0] + slabMax[0]) / 2
+    const sharedEdge = crossAxis !== 0
+    /** Hinge end (0 = min, 1 = max of the cross axis) for each leaf. */
+    const firstEnd = 0
+    const secondEnd = sharedEdge ? 0 : 1
 
     it("lidAxes matches the expected axes for this slab", () => {
       const size: Vec3 = [slabMax[0] - slabMin[0], slabMax[1] - slabMin[1], slabMax[2] - slabMin[2]]
@@ -201,34 +206,34 @@ describe.each(CASES)("$label", ({ dims, lid, axes }) => {
       expect(lidsOf("full", hingeSide, "first")).toEqual(lidsOf("full", hingeSide, "second"))
     })
 
-    it("split: two 'Lid leaf' parts tiling the slab, each hinged on its outer cross end", () => {
+    it("split: two 'Lid leaf' parts tiling the slab across x, hinged per hinge side", () => {
       const parts = lidsOf("split", hingeSide, "second")
       expect(parts.map((p) => p.id)).toEqual(["lid-first", "lid-second"])
       expect(parts.every((p) => p.name === "Lid leaf")).toBe(true)
       const [first, second] = parts
 
-      near(lo(first)[crossAxis], slabMin[crossAxis])
-      near(hi(first)[crossAxis], mid)
-      near(lo(second)[crossAxis], mid)
-      near(hi(second)[crossAxis], slabMax[crossAxis])
+      near(lo(first)[0], slabMin[0])
+      near(hi(first)[0], mid)
+      near(lo(second)[0], mid)
+      near(hi(second)[0], slabMax[0])
       for (const leaf of parts)
-        for (let a = 0; a < 3; a++) {
-          if (a === crossAxis) continue
+        for (let a = 1; a < 3; a++) {
           near(lo(leaf)[a], slabMin[a])
           near(hi(leaf)[a], slabMax[a])
         }
-      near(first.extents[crossAxis], second.extents[crossAxis])
+      near(first.extents[0], second.extents[0])
       // total volume equals the slab
       const vol = parts.reduce((s, p) => s + p.extents[0] * p.extents[1] * p.extents[2], 0)
       const slab = (slabMax[0] - slabMin[0]) * (slabMax[1] - slabMin[1]) * (slabMax[2] - slabMin[2])
       expect(vol).toBeCloseTo(slab, 0)
 
-      expectHinge(first, first.hinge, hingeAxis, crossAxis, 0)
-      expectHinge(second, second.hinge, hingeAxis, crossAxis, 1)
-      // the second leaf's hinge sits on the far (max) edge of the slab
-      near(second.hinge!.from[crossAxis], slabMax[crossAxis])
-      near(second.hinge!.to[crossAxis], slabMax[crossAxis])
+      expectHinge(first, first.hinge, hingeAxis, crossAxis, firstEnd)
+      expectHinge(second, second.hinge, hingeAxis, crossAxis, secondEnd)
       near(first.hinge!.from[crossAxis], slabMin[crossAxis])
+      near(second.hinge!.from[crossAxis], secondEnd === 0 ? slabMin[crossAxis] : slabMax[crossAxis])
+      near(second.hinge!.to[crossAxis], secondEnd === 0 ? slabMin[crossAxis] : slabMax[crossAxis])
+      if (sharedEdge) expect(first.hinge!.edge).toBe(second.hinge!.edge)
+      else expect(first.hinge!.edge).not.toBe(second.hinge!.edge)
     })
 
     it.each(LEAVES)("half, openLeaf %s: opening half is hinged, fixed half has no hinge", (openLeaf) => {
@@ -240,29 +245,49 @@ describe.each(CASES)("$label", ({ dims, lid, axes }) => {
       expect(opening.name).toBe("Lid (opening half)")
       expect(fixed.name).toBe("Lid (fixed half)")
 
-      // tiles the slab
-      near(lo(first)[crossAxis], slabMin[crossAxis])
-      near(hi(first)[crossAxis], lo(second)[crossAxis])
-      near(hi(second)[crossAxis], slabMax[crossAxis])
-      near(first.extents[crossAxis], second.extents[crossAxis])
-      near(hi(first)[crossAxis], mid)
+      // tiles the slab across x
+      near(lo(first)[0], slabMin[0])
+      near(hi(first)[0], lo(second)[0])
+      near(hi(second)[0], slabMax[0])
+      near(first.extents[0], second.extents[0])
+      near(hi(first)[0], mid)
+      for (const leaf of parts)
+        for (let a = 1; a < 3; a++) {
+          near(lo(leaf)[a], slabMin[a])
+          near(hi(leaf)[a], slabMax[a])
+        }
 
       expect(fixed.hinge).toBeUndefined()
-      if (openLeaf === "first") {
-        expectHinge(opening, opening.hinge, hingeAxis, crossAxis, 0)
-        near(opening.hinge!.from[crossAxis], slabMin[crossAxis])
-      } else {
-        expectHinge(opening, opening.hinge, hingeAxis, crossAxis, 1)
-        near(opening.hinge!.from[crossAxis], slabMax[crossAxis])
-      }
+      const end = openLeaf === "first" ? firstEnd : secondEnd
+      expectHinge(opening, opening.hinge, hingeAxis, crossAxis, end)
+      near(opening.hinge!.from[crossAxis], end === 0 ? slabMin[crossAxis] : slabMax[crossAxis])
     })
 
     it("swapping openLeaf swaps which half is opening", () => {
       const a = lidsOf("half", hingeSide, "first").find((p) => p.name === "Lid (opening half)")!
       const b = lidsOf("half", hingeSide, "second").find((p) => p.name === "Lid (opening half)")!
-      near(a.center[crossAxis] + b.center[crossAxis], slabMin[crossAxis] + slabMax[crossAxis])
-      expect(Math.abs(a.center[crossAxis] - b.center[crossAxis])).toBeGreaterThan(1)
+      near(a.center[0] + b.center[0], slabMin[0] + slabMax[0])
+      expect(Math.abs(a.center[0] - b.center[0])).toBeGreaterThan(1)
+      expect(a.id).toBe("lid-first")
+      expect(b.id).toBe("lid-second")
     })
+  })
+
+  it.each(["split", "half"] as const)("%s: leaf boxes are identical for hingeSide long and short; only the hinge differs", (lidType) => {
+    for (const openLeaf of LEAVES) {
+      const l = lidsOf(lidType, "long", openLeaf)
+      const s = lidsOf(lidType, "short", openLeaf)
+      expect(l.map((p) => p.id)).toEqual(s.map((p) => p.id))
+      expect(l.map((p) => p.name)).toEqual(s.map((p) => p.name))
+      for (let i = 0; i < l.length; i++) {
+        expect(l[i].center).toEqual(s[i].center)
+        expect(l[i].extents).toEqual(s[i].extents)
+      }
+      const hl = l.map((p) => JSON.stringify(p.hinge))
+      const hs = s.map((p) => JSON.stringify(p.hinge))
+      // hinge direction differs between the two sides whenever the lid is not degenerate
+      expect(hl).not.toEqual(hs)
+    }
   })
 
   it("short and long hinge sides give different hinge directions", () => {
@@ -289,14 +314,14 @@ describe("expected hinge edges on 18x12x10in", () => {
     expect(edge("front", "short")).toBe("left")
   })
 
-  it("split leaves: second leaf hinges on the opposite edge", () => {
+  it("split leaves: shared edge when the hinge runs along x, outer edges otherwise", () => {
     const edges = (lidPosition: LidPosition, hingeSide: HingeSide) =>
       buildBox(inputs({ lidPosition, hingeSide, lidType: "split" }))
         .parts.filter((p) => p.type === "lid")
         .map((p) => p.hinge!.edge)
-    expect(edges("top", "long")).toEqual(["back", "front"])
+    expect(edges("top", "long")).toEqual(["back", "back"])
     expect(edges("top", "short")).toEqual(["left", "right"])
-    expect(edges("front", "long")).toEqual(["bottom", "top"])
+    expect(edges("front", "long")).toEqual(["bottom", "bottom"])
     expect(edges("front", "short")).toEqual(["left", "right"])
   })
 })

@@ -3,7 +3,6 @@ import { buildBox } from "./build"
 import { MIN_DIVIDER_GAP_MM, SPAN_SUGGEST_RATIO } from "./constants"
 import { dividerAxis, dividerGap, suggestDivider, validateDividers } from "./dividers"
 import { JOINERY } from "./joinery"
-import { lidAxes } from "./lid"
 import type { Axis, Box, BoxInputs, HingeSide, LidPosition, LidType, Part, Vec3 } from "./types"
 import { inToMm } from "./units"
 
@@ -47,9 +46,9 @@ const interiorOf = (dims: typeof EXT): Box => JOINERY.butt.interiorBox(dims, T)
 const near = (a: number, b: number, d = 2) => expect(a).toBeCloseTo(b, d)
 
 /** Independent expectation of the divider axis. */
-function expectedAxis(dims: typeof EXT, lid: LidPosition, type: LidType, hs: HingeSide): Axis {
+function expectedAxis(dims: typeof EXT, lid: LidPosition, type: LidType): Axis {
   const i = sizeOf(interiorOf(dims))
-  if (type !== "full") return lidAxes(i, lid, hs).crossAxis
+  if (type !== "full") return 0 // split/half lids always divide across x, whatever the hinge side or lid
   const [a, b]: [Axis, Axis] = lid === "top" ? [0, 2] : [0, 1]
   return i[a] >= i[b] ? a : b
 }
@@ -59,33 +58,33 @@ describe("dividerAxis", () => {
   for (const d of DIMS) for (const l of LIDS) for (const t of TYPES) for (const h of SIDES) cases.push([d, l, t, h])
 
   it.each(cases)("%o %s %s %s", (dims, lid, type, hs) => {
-    expect(dividerAxis(interiorOf(dims), lid, type, hs)).toBe(expectedAxis(dims, lid, type, hs))
+    expect(dividerAxis(interiorOf(dims), lid, type)).toBe(expectedAxis(dims, lid, type))
   })
 
   it("full top lid on 18x12x10in: x is the longer axis", () => {
-    expect(dividerAxis(interiorOf(EXT), "top", "full", "long")).toBe(0)
-    expect(dividerAxis(interiorOf(EXT), "top", "full", "short")).toBe(0)
+    expect(dividerAxis(interiorOf(EXT), "top", "full")).toBe(0)
+    expect(dividerAxis(interiorOf(EXT), "top", "full")).toBe(0)
   })
 
   it("full lid ignores hingeSide and picks z when depth is the longer top-plane span", () => {
     const dims = { w: 200, d: 400, h: 300 }
-    expect(dividerAxis(interiorOf(dims), "top", "full", "long")).toBe(2)
-    expect(dividerAxis(interiorOf(dims), "top", "full", "short")).toBe(2)
+    expect(dividerAxis(interiorOf(dims), "top", "full")).toBe(2)
+    expect(dividerAxis(interiorOf(dims), "top", "full")).toBe(2)
   })
 
   it("full front lid compares x against y; tie goes to x", () => {
-    expect(dividerAxis(interiorOf({ w: 200, d: 300, h: 400 }), "front", "full", "long")).toBe(1)
-    expect(dividerAxis(interiorOf({ w: 300, d: 200, h: 300 }), "front", "full", "long")).toBe(0)
-    expect(dividerAxis(interiorOf({ w: 300, d: 300, h: 200 }), "top", "full", "long")).toBe(0)
+    expect(dividerAxis(interiorOf({ w: 200, d: 300, h: 400 }), "front", "full")).toBe(1)
+    expect(dividerAxis(interiorOf({ w: 300, d: 200, h: 300 }), "front", "full")).toBe(0)
+    expect(dividerAxis(interiorOf({ w: 300, d: 300, h: 200 }), "top", "full")).toBe(0)
   })
 
-  it("split/half lids use the lid cross axis", () => {
-    // top lid, long hinge along x -> cross is z; short -> cross is x
-    expect(dividerAxis(interiorOf(EXT), "top", "split", "long")).toBe(2)
-    expect(dividerAxis(interiorOf(EXT), "top", "half", "short")).toBe(0)
-    // front lid, long hinge along x -> cross is y
-    expect(dividerAxis(interiorOf(EXT), "front", "split", "long")).toBe(1)
-    expect(dividerAxis(interiorOf(EXT), "front", "half", "short")).toBe(0)
+  it("split/half lids always use x, independent of lid position and (non-existent) hinge side", () => {
+    for (const dims of DIMS)
+      for (const lid of LIDS)
+        for (const type of ["split", "half"] as const) expect(dividerAxis(interiorOf(dims), lid, type)).toBe(0)
+    // including non-square boxes where z or y is the long lid edge
+    expect(dividerAxis(interiorOf({ w: 200, d: 400, h: 300 }), "top", "split")).toBe(0)
+    expect(dividerAxis(interiorOf({ w: 200, d: 300, h: 400 }), "front", "half")).toBe(0)
   })
 })
 
@@ -111,7 +110,8 @@ describe("built dividers", () => {
       expect(p.shape).toBe("box")
     }
 
-    const axis = expectedAxis(dims, lidPosition, lidType, hingeSide)
+    const axis = expectedAxis(dims, lidPosition, lidType)
+    if (lidType !== "full") expect(axis).toBe(0)
     const ib = interiorOf(dims)
     const span = ib.max[axis] - ib.min[axis]
     const gap = (span - n * T) / (n + 1)
@@ -137,6 +137,7 @@ describe("built dividers", () => {
         const lids = r.parts.filter((p) => p.type === "lid")
         const seam = hi(lids.find((p) => p.id === "lid-first")!)[axis]
         near(divs[0].center[axis], seam)
+        near(divs[0].center[0], dims.w / 2)
         near(lo(lids.find((p) => p.id === "lid-second")!)[axis], seam)
       }
     }
@@ -189,19 +190,19 @@ describe("validateDividers / no room", () => {
   const ib = interiorOf(EXT)
 
   it("returns [] for zero or fewer", () => {
-    expect(validateDividers(0, ib, "top", "full", "long", T)).toEqual([])
-    expect(validateDividers(-1, ib, "top", "full", "long", T)).toEqual([])
+    expect(validateDividers(0, ib, "top", "full", T)).toEqual([])
+    expect(validateDividers(-1, ib, "top", "full", T)).toEqual([])
   })
 
   it("returns [] when there is room", () => {
-    expect(validateDividers(3, ib, "top", "full", "long", T)).toEqual([])
+    expect(validateDividers(3, ib, "top", "full", T)).toEqual([])
   })
 
   it("returns dividers-no-room when the gap is below the minimum", () => {
     // axis length 100 mm, one divider of 18: gap 41 -> ok; make the box narrow
     const narrow = interiorOf({ w: 2 * T + 60, d: 400, h: 300 })
     
-    const issues = validateDividers(3, narrow, "top", "split", "long", T) // cross axis x = 60
+    const issues = validateDividers(3, narrow, "top", "split", T) // divider axis x = 60
     expect(issues).toHaveLength(1)
     expect(issues[0].code).toBe("dividers-no-room")
     expect(issues[0].field).toBe("dividers")
@@ -211,9 +212,9 @@ describe("validateDividers / no room", () => {
     const n = 2
     const span = (n + 1) * MIN_DIVIDER_GAP_MM + n * T
     const mk = (s: number) => interiorOf({ w: s + 2 * T, d: 1000, h: 1000 })
-    // split top lid, long hinge (along z): cross axis is x
-    expect(validateDividers(n, mk(span), "top", "split", "long", T)).toEqual([])
-    expect(validateDividers(n, mk(span - 0.01), "top", "split", "long", T)[0]?.code).toBe("dividers-no-room")
+    // split lid: divider axis is x
+    expect(validateDividers(n, mk(span), "top", "split", T)).toEqual([])
+    expect(validateDividers(n, mk(span - 0.01), "top", "split", T)[0]?.code).toBe("dividers-no-room")
   })
 
   it("buildBox fails with ok:false, the code and no parts", () => {
@@ -232,8 +233,8 @@ describe("validateDividers / no room", () => {
 })
 
 describe("suggestDivider", () => {
-  const s = (n: number, ib: Box, lid: LidPosition, type: LidType, hs: HingeSide = "long") =>
-    suggestDivider(n, ib, lid, type, hs, T, SPAN_SUGGEST_RATIO)
+  const s = (n: number, ib: Box, lid: LidPosition, type: LidType) =>
+    suggestDivider(n, ib, lid, type, T, SPAN_SUGGEST_RATIO)
   const ib = interiorOf(EXT)
 
   it("is null whenever dividers already exist", () => {

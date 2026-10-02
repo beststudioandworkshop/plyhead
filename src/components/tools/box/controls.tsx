@@ -13,7 +13,6 @@ import {
   formatLength,
   formatThickness,
   lidAxes,
-  type Axis,
   type BottomStyle,
   type BoxInputs,
   type DimensionMode,
@@ -23,6 +22,7 @@ import {
   type LegStyle,
   type LidPosition,
   type LidType,
+  type RoundingMode,
   type SheetPreset,
   type Unit,
 } from "@/lib/box"
@@ -45,6 +45,8 @@ interface ControlsProps {
   /** Exterior size in mm; used to describe the lid's edges. */
   exterior: Dims
   dividerTip: "seam" | "span" | null
+  rounding: RoundingMode
+  onRounding: (mode: RoundingMode) => void
   sheetId: SheetPreset["id"]
   kerfMm: number
   onSheet: (id: SheetPreset["id"]) => void
@@ -52,17 +54,12 @@ interface ControlsProps {
   onLegs: (patch: Partial<BoxInputs["legs"]>) => void
 }
 
-/** Names for the two halves of a split lid, by the axis they split across. */
-const LEAF_LABELS: Record<Axis, [string, string]> = {
-  0: ["Left", "Right"],
-  1: ["Bottom", "Top"],
-  2: ["Back", "Front"],
-}
-
 export function Controls({
   state,
   exterior,
   dividerTip,
+  rounding,
+  onRounding,
   sheetId,
   kerfMm,
   onSheet,
@@ -79,7 +76,6 @@ export function Controls({
   const legStyle = inputs.legs.style
   // Lid size in the x/y/z frame; only the two in-plane axes matter.
   const lid = lidAxes([exterior.w, exterior.h, exterior.d], inputs.lidPosition, inputs.hingeSide)
-  const [firstLeaf, secondLeaf] = LEAF_LABELS[lid.crossAxis]
   const lidEdges = {
     long: Math.max(lid.hingeLength, lid.crossLength),
     short: Math.min(lid.hingeLength, lid.crossLength),
@@ -256,8 +252,8 @@ export function Controls({
             value={inputs.openLeaf}
             onChange={(openLeaf) => onInputs({ openLeaf })}
             options={[
-              { value: "first", label: firstLeaf },
-              { value: "second", label: secondLeaf },
+              { value: "first", label: "Left" },
+              { value: "second", label: "Right" },
             ]}
           />
         </Field>
@@ -375,6 +371,24 @@ export function Controls({
       ) : null}
 
       <Separator />
+
+      <Field>
+        <FieldTitle>Cut sizes</FieldTitle>
+        <Choice<RoundingMode>
+          label="Cut size rounding"
+          value={rounding}
+          onChange={onRounding}
+          options={[
+            { value: "exact", label: "Keep exact" },
+            { value: "easier", label: "Make it easier" },
+          ]}
+        />
+        <FieldDescription>
+          {rounding === "exact"
+            ? "Every piece is cut to its worked-out size."
+            : `Rounds each piece to the nearest ${unit === "in" ? '1/8"' : "1 mm"}, so the numbers are easier to measure. A piece can end up up to ${unit === "in" ? '1/16"' : "0.5 mm"} off.`}
+        </FieldDescription>
+      </Field>
 
       <Field>
         <FieldLabel htmlFor="box-sheet">Sheet size</FieldLabel>

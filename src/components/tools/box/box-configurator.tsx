@@ -20,10 +20,13 @@ import {
   groupParts,
   nestParts,
   resolveDimensions,
+  roundParts,
+  roundingStep,
   suggestDivider,
   type BoxInputs,
   type DimensionMode,
   type Dims,
+  type RoundingMode,
   type SheetPreset,
   type Unit,
 } from "@/lib/box"
@@ -66,6 +69,7 @@ export function BoxConfigurator() {
   const [thicknessPreset, setThicknessPreset] = React.useState(THICKNESS_PRESETS[1].id)
   const [sheetId, setSheetId] = React.useState<SheetPreset["id"]>("4x8")
   const [kerfMm, setKerfMm] = React.useState(DEFAULT_KERF_MM)
+  const [rounding, setRounding] = React.useState<RoundingMode>("exact")
 
   const patch = (p: Partial<BoxInputs>) => setInputs((prev) => ({ ...prev, ...p }))
 
@@ -93,9 +97,14 @@ export function BoxConfigurator() {
   }
 
   const result = React.useMemo(() => buildBox(inputs), [inputs])
-  const rows = React.useMemo(() => groupParts(result.parts), [result.parts])
+  // What actually gets cut. The 3D preview keeps the exact parts.
+  const cutParts = React.useMemo(
+    () => (rounding === "easier" ? roundParts(result.parts, roundingStep(unit)) : result.parts),
+    [result.parts, rounding, unit],
+  )
+  const rows = React.useMemo(() => groupParts(cutParts), [cutParts])
   const sheet = SHEET_PRESETS.find((p) => p.id === sheetId) ?? SHEET_PRESETS[0]
-  const nest = React.useMemo(() => nestParts(result.parts, sheet, kerfMm), [result.parts, sheet, kerfMm])
+  const nest = React.useMemo(() => nestParts(cutParts, sheet, kerfMm), [cutParts, sheet, kerfMm])
   const dividerTip = React.useMemo(
     () =>
       suggestDivider(
@@ -103,7 +112,6 @@ export function BoxConfigurator() {
         JOINERY[inputs.joinery].interiorBox(result.exterior, inputs.thickness),
         inputs.lidPosition,
         inputs.lidType,
-        inputs.hingeSide,
         inputs.thickness,
         SPAN_SUGGEST_RATIO,
       ),
@@ -162,6 +170,8 @@ export function BoxConfigurator() {
             onThicknessPreset={changePreset}
             exterior={result.exterior}
             dividerTip={result.ok ? dividerTip : null}
+            rounding={rounding}
+            onRounding={setRounding}
             sheetId={sheetId}
             kerfMm={kerfMm}
             onSheet={setSheetId}
@@ -173,8 +183,8 @@ export function BoxConfigurator() {
 
       {result.ok ? (
         <div className="flex flex-col gap-6 lg:col-start-2">
-          <CutList rows={rows} unit={unit} />
-          <SheetLayout nest={nest} parts={result.parts} unit={unit} />
+          <CutList rows={rows} unit={unit} rounded={rounding === "easier"} />
+          <SheetLayout nest={nest} parts={cutParts} unit={unit} />
           <HowTo inputs={inputs} unit={unit} />
         </div>
       ) : null}
