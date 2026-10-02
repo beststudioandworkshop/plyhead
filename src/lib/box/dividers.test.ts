@@ -57,7 +57,7 @@ describe("dividerAxis", () => {
   const cases: [(typeof EXT), LidPosition, LidType, HingeSide][] = []
   for (const d of DIMS) for (const l of LIDS) for (const t of TYPES) for (const h of SIDES) cases.push([d, l, t, h])
 
-  it.each(cases)("%o %s %s %s", (dims, lid, type, hs) => {
+  it.each(cases)("%o %s %s %s", (dims, lid, type) => {
     expect(dividerAxis(interiorOf(dims), lid, type)).toBe(expectedAxis(dims, lid, type))
   })
 
