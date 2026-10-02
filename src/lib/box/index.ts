@@ -13,3 +13,5 @@ export {
   type CutListRow,
   type CutListCells,
 } from "./cutlist"
+export { explodeOffset, centerOf, viewRadius, defaultExplodeDistance } from "./explode"
+export { PART_COLORS, PART_TYPE_LABEL, HINGE_COLOR } from "./part-colors"

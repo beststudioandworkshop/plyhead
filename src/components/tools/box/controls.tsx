@@ -2,6 +2,7 @@
 
 import { Choice } from "./choice"
 import { DimensionInput } from "./dimension-input"
+import { SIZE_HINTS } from "./hints"
 import { FieldGroup, Field, FieldLabel, FieldTitle, FieldDescription } from "@/components/ui/field"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
@@ -90,11 +91,30 @@ export function Controls({ state, onUnit, onMode, onInputs, onThicknessPreset, o
         </FieldDescription>
       </Field>
 
-      <div className="grid grid-cols-3 gap-3">
-        <DimensionInput id="box-w" label="Width" valueMm={inputs.dims.w} unit={unit} onChange={setDim("w")} />
-        <DimensionInput id="box-d" label="Depth" valueMm={inputs.dims.d} unit={unit} onChange={setDim("d")} />
-        <DimensionInput id="box-h" label="Height" valueMm={inputs.dims.h} unit={unit} onChange={setDim("h")} />
-      </div>
+      <DimensionInput
+        id="box-w"
+        label="Width"
+        valueMm={inputs.dims.w}
+        unit={unit}
+        onChange={setDim("w")}
+        description={SIZE_HINTS.w(unit)}
+      />
+      <DimensionInput
+        id="box-d"
+        label="Depth"
+        valueMm={inputs.dims.d}
+        unit={unit}
+        onChange={setDim("d")}
+        description={SIZE_HINTS.d(unit)}
+      />
+      <DimensionInput
+        id="box-h"
+        label="Height"
+        valueMm={inputs.dims.h}
+        unit={unit}
+        onChange={setDim("h")}
+        description={SIZE_HINTS.h(unit)}
+      />
 
       {interior ? (
         <DimensionInput

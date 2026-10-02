@@ -24,6 +24,7 @@ import {
 
 import { Controls } from "./controls"
 import { CutList } from "./cut-list"
+import { PreviewCard } from "./preview-card"
 
 const INITIAL: BoxInputs = {
   dimensionMode: "exterior",
@@ -97,11 +98,13 @@ export function BoxConfigurator() {
   const hasLegs = inputs.legs.face !== null
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[26rem_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start">
+    <div className="grid gap-6 lg:grid-cols-[26rem_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr] lg:items-start">
+      <PreviewCard result={result} lidPosition={inputs.lidPosition} />
+
       <Card className="lg:col-start-2">
         <CardHeader>
           <CardTitle>Your box</CardTitle>
-          <CardDescription>The 3D preview comes next. For now, these are the sizes.</CardDescription>
+          <CardDescription>The finished sizes, from your settings.</CardDescription>
         </CardHeader>
         <CardContent>
           {result.ok ? (
@@ -126,7 +129,7 @@ export function BoxConfigurator() {
         </CardContent>
       </Card>
 
-      <Card className="entry-zone lg:col-start-1 lg:row-span-2 lg:row-start-1">
+      <Card className="entry-zone lg:col-start-1 lg:row-span-3 lg:row-start-1">
         <CardHeader>
           <CardTitle>Settings</CardTitle>
         </CardHeader>
