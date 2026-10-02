@@ -113,7 +113,7 @@ export function BoxConfigurator() {
           ) : (
             <Alert variant="destructive">
               <AlertCircleIcon />
-              <AlertTitle>That box can't be built yet</AlertTitle>
+              <AlertTitle>That box can&apos;t be built yet</AlertTitle>
               <AlertDescription>
                 <ul className="list-disc pl-4">
                   {result.issues.map((i) => (
