@@ -71,3 +71,4 @@ export {
   OPEN_STAGGER,
   type OpenSpec,
 } from "./open"
+export { plyCount } from "./plywood"

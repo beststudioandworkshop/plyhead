@@ -17,6 +17,7 @@ import {
   openProgress,
   openSpecs,
   partProgress,
+  plyCount,
   viewRadius,
   type BoxResult,
   type LidPosition,
@@ -84,6 +85,11 @@ class SurfaceUniforms {
     uPeriod: { value: 1 },
     uFreq: { value: 1 },
     uMode: { value: 0 },
+    uThickAxis: { value: new Vector3(0, 1, 0) },
+    uThick: { value: 18 },
+    uPlies: { value: 9 },
+    uSeed: { value: 0 },
+    uRound: { value: 0 },
   }
 
   update(part: Part, surface: Surface, radius: number) {
@@ -104,6 +110,24 @@ class SurfaceUniforms {
     v.uPeriod.value = Math.max(radius * 0.06, 6)
     v.uFreq.value = (Math.PI * 2) / Math.max(radius * 0.03, 3)
     v.uMode.value = surface === "grain" ? 1 : surface === "solid" ? 2 : 0
+
+    // Plywood: the thickness axis is the thinnest one (a plate's geometry has it along y), and the
+    // edges show `plies` stacked layers. Each part gets its own grain pattern from its id.
+    const thin =
+      part.shape === "polygon" || part.shape === "cylinder"
+        ? [0, 1, 0]
+        : part.extents[0] <= part.extents[1] && part.extents[0] <= part.extents[2]
+          ? [1, 0, 0]
+          : part.extents[1] <= part.extents[2]
+            ? [0, 1, 0]
+            : [0, 0, 1]
+    v.uThickAxis.value.set(thin[0], thin[1], thin[2])
+    v.uThick.value = part.thickness
+    v.uPlies.value = plyCount(part.thickness)
+    let h = 0
+    for (let i = 0; i < part.id.length; i++) h = (h * 31 + part.id.charCodeAt(i)) % 1009
+    v.uSeed.value = h / 1009
+    v.uRound.value = part.shape === "cylinder" ? 1 : 0
   }
 }
 
@@ -120,21 +144,95 @@ function useSurface(part: Part, surface: Surface, radius: number) {
     (shader: WebGLProgramParametersWithUniforms) => {
       Object.assign(shader.uniforms, uniforms.values)
       shader.vertexShader = shader.vertexShader
-        .replace("#include <common>", "#include <common>\nvarying vec3 vObj;")
-        .replace("#include <begin_vertex>", "#include <begin_vertex>\nvObj = position;")
+        .replace("#include <common>", "#include <common>\nvarying vec3 vObj;\nvarying vec3 vObjN;")
+        .replace("#include <begin_vertex>", "#include <begin_vertex>\nvObj = position;\nvObjN = normal;")
       shader.fragmentShader = shader.fragmentShader
         .replace(
           "#include <common>",
           `#include <common>
 varying vec3 vObj;
+varying vec3 vObjN;
 uniform vec3 uUnique;
 uniform vec3 uUniversal;
 uniform vec3 uGrainLight;
 uniform vec3 uGrainDark;
 uniform vec3 uAxis;
+uniform vec3 uThickAxis;
 uniform float uPeriod;
 uniform float uFreq;
-uniform float uMode;`,
+uniform float uMode;
+uniform float uThick;
+uniform float uPlies;
+uniform float uSeed;
+uniform float uRound;
+
+float hash21(vec2 p) {
+  p = fract(p * vec2(123.34, 456.21));
+  p += dot(p, p + 45.32);
+  return fract(p.x * p.y);
+}
+float vnoise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash21(i), hash21(i + vec2(1.0, 0.0)), f.x),
+             mix(hash21(i + vec2(0.0, 1.0)), hash21(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+float fbm(vec2 p) {
+  float v = 0.0;
+  float a = 0.5;
+  for (int i = 0; i < 4; i++) {
+    v += a * vnoise(p);
+    p *= 2.03;
+    a *= 0.5;
+  }
+  return v;
+}
+
+// Face of a veneer: growth rings that wander and form arches, fine streaks along the grain,
+// and tiny pores. u runs along the grain, v across it (both in mm). px is mm per screen pixel;
+// fine detail fades to an even tone when zoomed out so it doesn't shimmer.
+vec3 woodFace(float u, float v, float px) {
+  vec2 o = vec2(uSeed * 37.1, uSeed * 91.7);
+  float warp = fbm(vec2(u * 0.006, v * 0.05) + o);
+  float d = length(vec2((u + o.x * 13.0) * 0.12, v + o.y * 4.0)) + warp * 2.6;
+  float ring = abs(fract(d / 3.4) - 0.5) * 2.0;
+  float late = smoothstep(0.5, 0.95, ring);
+  float streak = fbm(vec2(u * 0.05, v * 3.0) + o * 2.0);
+  float pores = smoothstep(0.8, 0.95, vnoise(vec2(u * 0.6, v * 7.0) + o));
+  float detail = 1.0 - clamp(px / 1.8, 0.0, 1.0);
+  float t = clamp(late * 0.5 + streak * 0.35 + pores * 0.18 * detail, 0.0, 1.0);
+  vec3 avg = mix(uGrainLight, uGrainDark, 0.42);
+  return mix(avg, mix(uGrainLight, uGrainDark, t), 0.45 + 0.55 * detail);
+}
+
+// Edge of a sheet: the plies show as stacked layers with thin glue lines. Plies alternate
+// between running along the edge (long grain, fine streaks) and across it (end grain, speckled
+// and a little darker). h is the distance through the thickness (0 to uThick), u along the edge.
+vec3 woodEdge(float h, float u, float px) {
+  float x = clamp(h / uThick, 0.0, 0.9999) * uPlies;
+  float p = floor(x);
+  float f = fract(x);
+  bool across = mod(p, 2.0) > 0.5;
+  float tone = 0.8 + 0.2 * hash21(vec2(p, uSeed * 17.0));
+  vec3 base = across ? mix(uGrainLight, uGrainDark, 0.62) : mix(uGrainLight, uGrainDark, 0.04);
+  float grain = across ? fbm(vec2(u * 0.9, h * 5.0) + uSeed) : fbm(vec2(u * 0.05, h * 7.0) + uSeed);
+  base = mix(base, uGrainDark, grain * (across ? 0.45 : 0.3)) * tone;
+  // Glue lines are drawn a little wider than life so the layers read at normal viewing distance.
+  float glue = smoothstep(0.0, 0.16, f) * (1.0 - smoothstep(0.84, 1.0, f));
+  float visible = clamp(1.0 - (px - 1.2) / 2.0, 0.55, 1.0);
+  return mix(base, uGrainDark * 0.38, (1.0 - glue) * visible);
+}
+
+// End grain of a dowel: concentric growth rings.
+vec3 woodRound(vec3 p, float px) {
+  float r = length(p.xz);
+  float wob = fbm(vec2(atan(p.z, p.x) * 2.0, r * 0.2) + uSeed * 13.0);
+  float ring = abs(fract((r + wob * 2.0) / 2.2) - 0.5) * 2.0;
+  float detail = 1.0 - clamp(px / 1.5, 0.0, 1.0);
+  float t = smoothstep(0.45, 0.95, ring) * (0.35 + 0.5 * detail);
+  return mix(uGrainLight, uGrainDark, clamp(t + 0.12, 0.0, 1.0));
+}`,
         )
         .replace(
           "#include <color_fragment>",
@@ -151,14 +249,23 @@ if (uMode > 1.5) {
   float band = smoothstep(0.9 - w, 0.9 + w, tri);
   diffuseColor.rgb = mix(uUnique, uUniversal, band * 0.5);
 } else {
-  float along = dot(vObj, uAxis);
-  vec3 across = vObj - along * uAxis;
-  float wave = sin(dot(across, vec3(0.7, 0.3, 1.1)) * uFreq * 0.3 + along * uFreq * 0.05);
-  float coarse = sin(dot(across, vec3(1.0, 1.7, 2.3)) * uFreq + 2.5 * wave);
-  float fine = sin(dot(across, vec3(2.1, 1.3, 0.9)) * uFreq * 3.1 + 1.5 * sin(along * uFreq * 0.05));
-  float g = clamp(0.5 + 0.35 * coarse + 0.15 * fine, 0.0, 1.0);
-  vec3 wood = mix(uGrainDark, uGrainLight, g);
-  diffuseColor.rgb = mix(wood, uUnique, 0.32);
+  float px = length(fwidth(vObj));
+  vec3 wood;
+  if (uRound > 0.5) {
+    if (abs(vObjN.y) > 0.5) {
+      wood = woodRound(vObj, px);
+    } else {
+      wood = woodFace(vObj.y, vObj.x + vObj.z, px);
+    }
+  } else {
+    vec3 across = normalize(cross(uAxis, uThickAxis));
+    if (abs(dot(vObjN, uThickAxis)) > 0.5) {
+      wood = woodFace(dot(vObj, uAxis), dot(vObj, across), px);
+    } else {
+      wood = woodEdge(dot(vObj, uThickAxis) + uThick * 0.5, dot(vObj, uAxis) + dot(vObj, across), px);
+    }
+  }
+  diffuseColor.rgb = mix(wood, uUnique, 0.12);
 }`,
         )
     },
